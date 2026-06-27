@@ -1,0 +1,398 @@
+// src/data-bridge/apiClients/oddsClient.ts
+import * as fs from 'fs';
+import * as path from 'path';
+import { ApiResponse } from '../baseClient';
+import { RawMatch, RawOdds } from '../mockClient';
+import { logger } from '../../core/utils/logger';
+
+// ─── CONSTANTS ───────────────────────────────────────────
+
+const BASE_URL = 'https://api.the-odds-api.com/v4';
+
+const SPORT_KEYS: Record<string, string[]> = {
+  football: [
+    'soccer_finland_veikkausliiga',
+    'soccer_sweden_superettan',
+    'soccer_sweden_allsvenskan',
+    'soccer_norway_eliteserien',
+    'soccer_league_of_ireland',
+    'soccer_spain_segunda_division',
+    'soccer_brazil_serie_b',
+    'soccer_china_superleague',
+    'soccer_italy_serie_a',
+    'soccer_brazil_campeonato',
+  ],
+  basketball: [
+  
+    'basketball_wnba',
+  ],
+  tennis: [
+  'tennis_wta_bad_homburg_open',
+  'tennis_atp_wimbledon',
+  'tennis_wta_wimbledon',
+
+  ],
+  hockey: [
+    'icehockey_nhl',
+  ],
+};
+
+const SPORT_MARKETS: Record<string, string> = {
+  football:   'totals',
+  basketball: 'totals',
+  tennis:     'h2h',
+  hockey:     'totals',
+};
+
+
+const SPORT_REGIONS: Record<string, string> = {
+  football:   'eu',
+  basketball: 'us',
+  tennis:     'eu',
+  hockey:     'us',
+};
+
+const BOOKMAKERS_WHITELIST = ['pinnacle', 'bet365', 'unibet', 'williamhill', 'draftkings', 'fanduel', 'betmgm'];
+
+// ─── PERSISTENT FILE CACHE ────────────────────────────────
+
+interface CacheEntry {
+  data: { matches: RawMatch[]; oddsMap: [string, RawOdds[]][] };
+  fetchedAt: number;
+}
+
+const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+const CACHE_DIR = path.join(__dirname, '../../../.cache');
+
+function cacheFilePath(sport: string): string {
+  return path.join(CACHE_DIR, `odds-${sport}.json`);
+}
+
+function readCache(sport: string): { matches: RawMatch[]; oddsMap: Map<string, RawOdds[]> } | null {
+  try {
+    const filePath = cacheFilePath(sport);
+    if (!fs.existsSync(filePath)) return null;
+
+    const raw = fs.readFileSync(filePath, 'utf-8');
+    const entry: CacheEntry = JSON.parse(raw);
+
+    if (Date.now() - entry.fetchedAt >= CACHE_TTL_MS) return null;
+
+    return {
+      matches: entry.data.matches,
+      oddsMap: new Map(entry.data.oddsMap),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeCache(sport: string, data: { matches: RawMatch[]; oddsMap: Map<string, RawOdds[]> }): void {
+  try {
+    if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
+
+    const entry: CacheEntry = {
+      data: {
+        matches: data.matches,
+        oddsMap: Array.from(data.oddsMap.entries()),
+      },
+      fetchedAt: Date.now(),
+    };
+
+    fs.writeFileSync(cacheFilePath(sport), JSON.stringify(entry), 'utf-8');
+  } catch (err: any) {
+    logger.warn(`[OddsClient] Failed to write cache for ${sport}`, { error: err.message });
+  }
+}
+
+// ─── API HELPER ──────────────────────────────────────────
+
+async function apiFetch<T>(endpoint: string, params: Record<string, string>): Promise<T> {
+  const apiKey = process.env.THE_ODDS_API_KEY;
+  if (!apiKey) throw new Error('THE_ODDS_API_KEY not set in environment');
+
+  const url = new URL(`${BASE_URL}${endpoint}`);
+  url.searchParams.set('apiKey', apiKey);
+  for (const [k, v] of Object.entries(params)) {
+    url.searchParams.set(k, v);
+  }
+
+  const res = await fetch(url.toString());
+
+  const remaining = res.headers.get('x-requests-remaining');
+  const used = res.headers.get('x-requests-used');
+  const last = res.headers.get('x-requests-last');
+  if (remaining) {
+    logger.info(`[OddsClient] API credits — used: ${used}, last: ${last}, remaining: ${remaining}`);
+  }
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`TheOddsAPI ${endpoint} failed: ${res.status} — ${body}`);
+  }
+
+  return res.json() as Promise<T>;
+}
+
+// ─── PARSER (ODDS) ────────────────────────────────────────
+
+function parseEvents(
+  events: any[],
+  sport: string,
+  sportKey: string,
+): { matches: RawMatch[]; oddsMap: Map<string, RawOdds[]> } {
+  const matches: RawMatch[] = [];
+  const oddsMap = new Map<string, RawOdds[]>();
+  const ts = new Date().toISOString();
+
+  for (const event of events) {
+    const externalId = event.id;
+    const homeTeam = event.home_team;
+    const awayTeam = event.away_team;
+    const startTime = event.commence_time;
+    const league = event.sport_title || sportKey;
+
+    if (!externalId || !homeTeam || !awayTeam || !startTime) continue;
+
+    matches.push({
+      externalId,
+      sport,
+      league,
+      homeTeam,
+      awayTeam,
+      startTime,
+      source: 'theoddsapi',
+    });
+
+    const rawOdds: RawOdds[] = [];
+    const bookmakers = event.bookmakers || [];
+
+    for (const bookmaker of bookmakers) {
+      const slug = bookmaker.key as string;
+      if (!BOOKMAKERS_WHITELIST.includes(slug)) continue;
+
+      const bookmakerName = toBookmakerName(slug);
+      const markets = bookmaker.markets || [];
+
+      for (const market of markets) {
+        const marketKey = market.key as string;
+        const marketName = toMarketName(marketKey);
+        if (!marketName) continue;
+
+        const outcomes = market.outcomes || [];
+
+        for (const outcome of outcomes) {
+          const selection = toSelection(outcome, marketKey);
+          if (!selection) continue;
+
+          const odds = outcome.price as number;
+          if (!odds || odds <= 1) continue;
+
+          rawOdds.push({
+            externalMatchId: externalId,
+            bookmaker: bookmakerName,
+            market: marketName,
+            selection,
+            odds,
+            timestamp: ts,
+          });
+        }
+      }
+    }
+
+    if (rawOdds.length > 0) {
+      oddsMap.set(externalId, rawOdds);
+    }
+  }
+
+  return { matches, oddsMap };
+}
+
+function toMarketName(key: string): string | null {
+  const map: Record<string, string> = {
+    h2h:     'moneyline',
+    totals:  'totals',
+    spreads: 'spread',
+  };
+  return map[key] || null;
+}
+
+function toSelection(outcome: any, marketKey: string): string | null {
+  if (marketKey === 'h2h') {
+    return outcome.name || null;
+  }
+  if (marketKey === 'totals') {
+    if (outcome.name && outcome.point !== undefined) {
+      return `${outcome.name} ${outcome.point}`;
+    }
+  }
+  if (marketKey === 'spreads') {
+    if (outcome.name && outcome.point !== undefined) {
+      return `${outcome.name} ${outcome.point}`;
+    }
+  }
+  return null;
+}
+
+function toBookmakerName(slug: string): string {
+  const map: Record<string, string> = {
+    pinnacle:    'Pinnacle',
+    bet365:      'Bet365',
+    williamhill: 'William Hill',
+    unibet:      'Unibet',
+    betfair:     'Betfair Exchange',
+    bwin:        'Bwin',
+  };
+  return map[slug] ?? slug.charAt(0).toUpperCase() + slug.slice(1);
+}
+
+// ─── RESULTS / SCORES TYPES ───────────────────────────────
+
+export interface RawScore {
+  externalId: string;
+  sport: string;
+  homeTeam: string;
+  awayTeam: string;
+  completed: boolean;
+  homeScore: number | null;
+  awayScore: number | null;
+  lastUpdate: string | null;
+}
+
+// ─── MAIN CLIENT ─────────────────────────────────────────
+
+export class OddsClient {
+
+  async fetchForSport(sport: string): Promise<{
+    matches: RawMatch[];
+    oddsMap: Map<string, RawOdds[]>;
+  }> {
+    const cached = readCache(sport);
+    if (cached) {
+      logger.info(`[OddsClient] Cache hit for ${sport} — skipping API call`);
+      return cached;
+    }
+
+    const sportKeys = SPORT_KEYS[sport];
+    if (!sportKeys?.length) {
+      throw new Error(`No sport keys configured for ${sport}`);
+    }
+
+    const market = SPORT_MARKETS[sport];
+    if (!market) {
+      throw new Error(`No market configured for ${sport}`);
+    }
+
+    logger.info(`[OddsClient] Fetching odds for ${sport}`, {
+      leagues: sportKeys.length,
+      market,
+    });
+
+    let allMatches: RawMatch[] = [];
+    let allOddsMap = new Map<string, RawOdds[]>();
+
+    for (const sportKey of sportKeys) {
+      try {
+        const events = await apiFetch<any[]>(`/sports/${sportKey}/odds`, {
+          
+          regions: SPORT_REGIONS[sport] || 'eu',
+          markets: market,
+          oddsFormat: 'decimal',
+        });
+
+        const { matches, oddsMap } = parseEvents(events || [], sport, sportKey);
+        allMatches = allMatches.concat(matches);
+        for (const [k, v] of oddsMap) {
+          allOddsMap.set(k, v);
+        }
+
+        logger.info(`[OddsClient] ${sportKey}: ${matches.length} matches, ${oddsMap.size} with odds`);
+
+        await new Promise(r => setTimeout(r, 500));
+
+      } catch (err: any) {
+        logger.warn(`[OddsClient] Failed to fetch ${sportKey}`, { error: err.message });
+      }
+    }
+
+    logger.info(`[OddsClient] Total for ${sport}: ${allMatches.length} matches, ${allOddsMap.size} with odds`);
+
+    const data = { matches: allMatches, oddsMap: allOddsMap };
+    writeCache(sport, data);
+
+    return data;
+  }
+
+  /**
+   * Fetch completed match results for a sport, looking back up to `daysFrom` days.
+   * Used by the bet tracker to resolve pending value bets.
+   * Cost: 2 credits per sportKey when daysFrom is specified.
+   */
+  async fetchScores(sport: string, daysFrom: number = 3): Promise<RawScore[]> {
+    const sportKeys = SPORT_KEYS[sport];
+    if (!sportKeys?.length) {
+      throw new Error(`No sport keys configured for ${sport}`);
+    }
+
+    const clampedDays = Math.max(1, Math.min(3, daysFrom));
+    const allScores: RawScore[] = [];
+
+    for (const sportKey of sportKeys) {
+      try {
+        const events = await apiFetch<any[]>(`/sports/${sportKey}/scores`, {
+          daysFrom: String(clampedDays),
+          dateFormat: 'iso',
+        });
+
+        for (const event of (events || [])) {
+          if (!event.completed) continue; // only resolve finished matches
+
+          const scoresArr = event.scores || [];
+          const homeScoreEntry = scoresArr.find((s: any) => s.name === event.home_team);
+          const awayScoreEntry = scoresArr.find((s: any) => s.name === event.away_team);
+
+          allScores.push({
+            externalId: event.id,
+            sport,
+            homeTeam: event.home_team,
+            awayTeam: event.away_team,
+            completed: true,
+            homeScore: homeScoreEntry ? parseInt(homeScoreEntry.score, 10) : null,
+            awayScore: awayScoreEntry ? parseInt(awayScoreEntry.score, 10) : null,
+            lastUpdate: event.last_update || null,
+          });
+        }
+
+        logger.info(`[OddsClient] ${sportKey}: ${events?.length || 0} events checked, ${allScores.length} completed so far`);
+
+        await new Promise(r => setTimeout(r, 500));
+
+      } catch (err: any) {
+        logger.warn(`[OddsClient] Failed to fetch scores for ${sportKey}`, { error: err.message });
+      }
+    }
+
+    return allScores;
+  }
+
+  async fetchOddsForFixture(fixtureId: string): Promise<ApiResponse<RawOdds[]>> {
+    logger.warn(`[OddsClient] fetchOddsForFixture not supported on TheOddsAPI — use fetchForSport`);
+    return {
+      data: [],
+      success: true,
+      statusCode: 200,
+      correlationId: `odds_${Date.now()}`,
+    };
+  }
+
+  clearCache(sport?: string) {
+    if (sport) {
+      const filePath = cacheFilePath(sport);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    } else {
+      if (fs.existsSync(CACHE_DIR)) fs.rmSync(CACHE_DIR, { recursive: true, force: true });
+    }
+  }
+}
+
+export const oddsClient = new OddsClient();
