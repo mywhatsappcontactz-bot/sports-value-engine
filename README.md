@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ﻿# Sports Value Engine
 
 A multi-sport betting value detection engine built with TypeScript and Node.js.
@@ -19,3 +20,7 @@ npx ts-node src/core/database/migrate.ts
 ```\nODDS_API_KEY=
 API_SPORTS_KEY=
 ```
+=======
+# sports-value-engine
+Multi-sport betting value detection engine — Pinnacle sharp benchmark, Kelly sizing, Poisson+Elo models
+>>>>>>> 1225a65f4d852b1161742dc197eef0b27ddfb326
