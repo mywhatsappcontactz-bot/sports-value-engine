@@ -142,6 +142,27 @@ export interface TeamMapping {
   createdAt?: string;
 }
 
+export interface BetResult {
+  id: string;
+  betType: 'value_bet' | 'tip';
+  refId: string;           // value_bets.id or tip matchId+selection
+  matchId: string;
+  homeTeam: string;
+  awayTeam: string;
+  league: string;
+  sport: string;
+  selection: string;
+  bookmaker: string;
+  odds: number;
+  stake: number;           // in naira
+  result: 'pending' | 'won' | 'lost' | 'void';
+  profitLoss: number;      // in naira
+  bankrollBefore: number;
+  bankrollAfter: number;
+  createdAt?: string;
+  settledAt?: string;
+}
+
 // ─── SCHEMA ──────────────────────────────────────────────────────────────────
 
 export function initializeSchema(db: Database.Database): void {
@@ -249,7 +270,8 @@ export function initializeSchema(db: Database.Database): void {
       createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(sport, teamNameNormalized)
     );
-CREATE INDEX IF NOT EXISTS idx_matches_sport ON matches(sport);
+
+    CREATE INDEX IF NOT EXISTS idx_matches_sport ON matches(sport);
     CREATE INDEX IF NOT EXISTS idx_matches_status ON matches(status);
     CREATE INDEX IF NOT EXISTS idx_matches_startTime ON matches(startTime);
     CREATE INDEX IF NOT EXISTS idx_odds_matchId ON odds(matchId);
@@ -280,5 +302,49 @@ CREATE INDEX IF NOT EXISTS idx_matches_sport ON matches(sport);
     CREATE INDEX IF NOT EXISTS idx_odds_history_matchId ON odds_history(matchId);
     CREATE INDEX IF NOT EXISTS idx_odds_history_bookmaker ON odds_history(bookmaker);
     CREATE INDEX IF NOT EXISTS idx_odds_history_timestamp ON odds_history(timestamp);
+
+    -- ─── ROI TRACKER ─────────────────────────────────────────────────────────
+
+    CREATE TABLE IF NOT EXISTS bet_results (
+      id TEXT PRIMARY KEY,
+      betType TEXT NOT NULL CHECK(betType IN ('value_bet', 'tip')),
+      refId TEXT NOT NULL,
+      matchId TEXT NOT NULL,
+      homeTeam TEXT NOT NULL,
+      awayTeam TEXT NOT NULL,
+      league TEXT NOT NULL,
+      sport TEXT NOT NULL,
+      selection TEXT NOT NULL,
+      bookmaker TEXT NOT NULL,
+      odds REAL NOT NULL,
+      stake REAL NOT NULL,
+      result TEXT DEFAULT 'pending' CHECK(result IN ('pending','won','lost','void')),
+      profitLoss REAL DEFAULT 0,
+      bankrollBefore REAL NOT NULL,
+      bankrollAfter REAL NOT NULL,
+      createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+      settledAt TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS bankroll (
+      id INTEGER PRIMARY KEY CHECK(id = 1),
+      balance REAL NOT NULL,
+      startingBalance REAL NOT NULL,
+      totalBets INTEGER DEFAULT 0,
+      totalWon INTEGER DEFAULT 0,
+      totalLost INTEGER DEFAULT 0,
+      totalVoid INTEGER DEFAULT 0,
+      totalStaked REAL DEFAULT 0,
+      totalProfit REAL DEFAULT 0,
+      updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Seed bankroll if not exists
+    INSERT OR IGNORE INTO bankroll (id, balance, startingBalance)
+    VALUES (1, 50000, 50000);
+
+    CREATE INDEX IF NOT EXISTS idx_bet_results_betType ON bet_results(betType);
+    CREATE INDEX IF NOT EXISTS idx_bet_results_result ON bet_results(result);
+    CREATE INDEX IF NOT EXISTS idx_bet_results_matchId ON bet_results(matchId);
   `);
 }
