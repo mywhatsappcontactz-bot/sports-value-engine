@@ -15,7 +15,7 @@ export interface Tip {
   startTime: string;
   hoursToKickoff: number;
   pinnacleLineValue: number;
-  pinnacleLineDirection: 'Over' | 'Under';
+  pinnacleLineDirection: 'Over' | 'Under' | 'Home' | 'Away';
   previousOdds: number;
   currentOdds: number;
   oddsDropPct: number;
@@ -28,7 +28,7 @@ export interface Tip {
   signal: string;
 }
 
-// ─── BRIDGE LOGIC ────────────────────────────────────────────────────────────
+// ─── BRIDGE LOGIC (TOTALS) ───────────────────────────────────────────────────
 
 function getBridgeTarget(
   pinnacleLineValue: number,
@@ -73,7 +73,7 @@ function parseSelection(selection: string): { direction: 'Over' | 'Under'; lineV
   };
 }
 
-// ─── DEVIG PINNACLE ──────────────────────────────────────────────────────────
+// ─── DEVIG PINNACLE (TOTALS) ─────────────────────────────────────────────────
 
 function calculateTrueProbability(
   overOdds: number,
@@ -86,6 +86,138 @@ function calculateTrueProbability(
   const overTrue = overImplied / total;
   const underTrue = underImplied / total;
   return direction === 'Over' ? overTrue : underTrue;
+}
+
+// ─── DEVIG PINNACLE (MONEYLINE) ──────────────────────────────────────────────
+
+function calculateMoneylineTrueProbability(
+  homeOdds: number,
+  awayOdds: number,
+  drawOdds: number | null,
+  side: 'home' | 'away'
+): number {
+  const homeImplied = 1 / homeOdds;
+  const awayImplied = 1 / awayOdds;
+  const drawImplied = drawOdds ? 1 / drawOdds : 0;
+  const total = homeImplied + awayImplied + drawImplied;
+  const homeTrue = homeImplied / total;
+  const awayTrue = awayImplied / total;
+  return side === 'home' ? homeTrue : awayTrue;
+}
+
+// ─── TENNIS MONEYLINE SCANNER ─────────────────────────────────────────────────
+
+function scanTennisMoneyline(
+  match: any,
+  hoursToKickoff: number,
+  tips: Tip[]
+): void {
+  // Get current Pinnacle moneyline odds
+  const currentPinnacleOdds = db.prepare(`
+    SELECT selection, odds
+    FROM odds
+    WHERE matchId = ? AND bookmaker = 'Pinnacle' AND market = 'moneyline'
+  `).all(match.id) as any[];
+
+  if (!currentPinnacleOdds.length) return;
+
+  // Get earliest Pinnacle moneyline snapshot
+  const previousSnapshot = db.prepare(`
+    SELECT selection, odds, timestamp
+    FROM odds_history
+    WHERE matchId = ? AND bookmaker = 'Pinnacle' AND market = 'moneyline'
+    ORDER BY timestamp ASC
+    LIMIT 20
+  `).all(match.id) as any[];
+
+  if (!previousSnapshot.length) return;
+
+  // Map current odds by selection
+  const currentBySelection = new Map<string, number>();
+  for (const o of currentPinnacleOdds) {
+    currentBySelection.set(o.selection, o.odds);
+  }
+
+  // Map earliest snapshot by selection
+  const previousBySelection = new Map<string, number>();
+  for (const o of previousSnapshot) {
+    if (!previousBySelection.has(o.selection)) {
+      previousBySelection.set(o.selection, o.odds);
+    }
+  }
+
+  // Tennis h2h selections are player names (homeTeam / awayTeam)
+  const homeSelection = match.homeTeam;
+  const awaySelection = match.awayTeam;
+
+  const currentHome = currentBySelection.get(homeSelection);
+  const currentAway = currentBySelection.get(awaySelection);
+  const previousHome = previousBySelection.get(homeSelection);
+  const previousAway = previousBySelection.get(awaySelection);
+
+  if (!currentHome || !currentAway || !previousHome || !previousAway) return;
+
+  // Check both sides for movement
+  const sides = [
+    { selection: homeSelection, current: currentHome, previous: previousHome, side: 'home' as const },
+    { selection: awaySelection, current: currentAway, previous: previousAway, side: 'away' as const },
+  ];
+
+  for (const { selection, current, previous, side } of sides) {
+    // Odds dropped = sharp money on this player
+    const oddsDropPct = ((previous - current) / previous) * 100;
+    if (oddsDropPct < 2) continue;
+
+    // Devig to get true probability
+    const trueProbability = calculateMoneylineTrueProbability(
+      currentHome, currentAway, null, side
+    );
+
+    // Minimum confidence threshold for tennis
+    if (trueProbability < 0.62) continue;
+
+    // Find best local bookmaker odds for this player
+    const localOdds = db.prepare(`
+      SELECT bookmaker, odds
+      FROM odds
+      WHERE matchId = ?
+      AND market = 'moneyline'
+      AND selection = ?
+      AND bookmaker != 'Pinnacle'
+      AND odds >= 1.20
+      ORDER BY odds DESC
+      LIMIT 1
+    `).get(match.id, selection) as any;
+
+    if (!localOdds) continue;
+
+    // Skip if local odds are worse than Pinnacle (no value)
+    if (localOdds.odds < current) continue;
+
+    const signal = `Pinnacle ${selection} dropping ${oddsDropPct.toFixed(1)}% — sharp money on ${side === 'home' ? match.homeTeam : match.awayTeam}`;
+
+    tips.push({
+      matchId: match.id,
+      homeTeam: match.homeTeam,
+      awayTeam: match.awayTeam,
+      league: match.league,
+      sport: match.sport,
+      startTime: match.startTime,
+      hoursToKickoff: parseFloat(hoursToKickoff.toFixed(1)),
+      pinnacleLineValue: current,
+      pinnacleLineDirection: side === 'home' ? 'Home' : 'Away',
+      previousOdds: previous,
+      currentOdds: current,
+      oddsDropPct: parseFloat(oddsDropPct.toFixed(2)),
+      trueProbability: parseFloat(trueProbability.toFixed(4)),
+      targetMarket: 'moneyline',
+      targetSelection: selection,
+      localBookmaker: localOdds.bookmaker,
+      localOdds: localOdds.odds,
+      confidence: parseFloat((trueProbability * 100).toFixed(1)),
+      signal,
+    });
+  }
 }
 
 // ─── MAIN SCANNER ────────────────────────────────────────────────────────────
@@ -114,6 +246,14 @@ export function runTipScanner(hoursWindow: number = 6): Tip[] {
 
   for (const match of matches) {
     const hoursToKickoff = (new Date(match.startTime).getTime() - now.getTime()) / (1000 * 60 * 60);
+
+    // ── TENNIS: moneyline scanner ──────────────────────────────────────────
+    if (match.sport === 'tennis') {
+      scanTennisMoneyline(match, hoursToKickoff, tips);
+      continue;
+    }
+
+    // ── OTHER SPORTS: totals scanner ───────────────────────────────────────
 
     // Get current Pinnacle odds for this match
     const currentPinnacleOdds = db.prepare(`
@@ -159,7 +299,7 @@ export function runTipScanner(hoursWindow: number = 6): Tip[] {
 
       // Odds dropped = implied probability increased = sharp money came in
       const oddsDropPct = ((previousOdds - currentOdds) / previousOdds) * 100;
-      if (oddsDropPct < 2) continue; // minimum 2% drop to signal movement
+      if (oddsDropPct < 2) continue;
 
       const { direction, lineValue } = parsed;
 
