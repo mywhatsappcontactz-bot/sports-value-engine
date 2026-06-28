@@ -186,7 +186,7 @@ async function runScan(sportArg?: string) {
 
   // Run tip scanner and notify
   logger.info('[scan] Running tip scanner...');
-  const tips = runTipScanner(24);
+  const tips = runTipScanner(72);
   printTips(tips);
   await notifyTips(tips);
   logger.info(`[scan] Tip scanner complete — ${tips.length} tips found.`);
