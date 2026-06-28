@@ -69,17 +69,24 @@ function logPendingBet(
   return id;
 }
 
+function isDuplicateBet(betType: 'value_bet' | 'tip', matchId: string, selection: string): boolean {
+  const existing = db.prepare(`
+    SELECT id FROM bet_results
+    WHERE betType = ? AND matchId = ? AND selection = ? AND result = 'pending'
+  `).get(betType, matchId, selection);
+  return !!existing;
+}
+
 // ─── VALUE BETS ──────────────────────────────────────────────────────────────
 
 export async function notifyValueBets(result: EngineResult, sport: string): Promise<void> {
   if (!result.valueBets.length) return;
 
-  const lines: string[] = [];
-  lines.push(`⚡ <b>VALUE BETS — ${sport.toUpperCase()}</b>`);
-  lines.push(`Found: ${result.valueBets.length} bet(s)\n`);
+  const newBets = [];
 
   for (const bet of result.valueBets as any[]) {
-    const teams = bet.homeTeam && bet.awayTeam ? `${bet.homeTeam} vs ${bet.awayTeam}` : '';
+    // Skip duplicates
+    if (isDuplicateBet('value_bet', bet.matchId, bet.selection)) continue;
 
     const b = getBankroll();
     const stakeNaira = b ? parseFloat((bet.kellyStake * b.balance).toFixed(2)) : 0;
@@ -99,7 +106,18 @@ export async function notifyValueBets(result: EngineResult, sport: string): Prom
     );
 
     const shortId = betId.slice(0, 8);
+    const teams = bet.homeTeam && bet.awayTeam ? `${bet.homeTeam} vs ${bet.awayTeam}` : '';
 
+    newBets.push({ bet, stakeNaira, shortId, teams });
+  }
+
+  if (!newBets.length) return;
+
+  const lines: string[] = [];
+  lines.push(`⚡ <b>VALUE BETS — ${sport.toUpperCase()}</b>`);
+  lines.push(`Found: ${newBets.length} new bet(s)\n`);
+
+  for (const { bet, stakeNaira, shortId, teams } of newBets) {
     lines.push(`🟢 <b>${teams}</b>`);
     lines.push(`Market: ${bet.market} | Selection: ${bet.selection}`);
     lines.push(`Bookmaker: ${bet.bookmaker} @ <b>${bet.bookmakerOdds}</b>`);
@@ -117,12 +135,12 @@ export async function notifyValueBets(result: EngineResult, sport: string): Prom
 export async function notifyTips(tips: Tip[]): Promise<void> {
   if (!tips.length) return;
 
-  const lines: string[] = [];
-  lines.push(`🎯 <b>HIGH CONFIDENCE TIPS</b>`);
-  lines.push(`Found: ${tips.length} tip(s)\n`);
+  const newTips = [];
 
   for (const tip of tips) {
-    const kickoff = new Date(tip.startTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    // Skip duplicates — same match + selection already pending
+    if (isDuplicateBet('tip', tip.matchId, tip.targetSelection)) continue;
+
     const stake = 1000;
 
     const betId = logPendingBet(
@@ -140,7 +158,17 @@ export async function notifyTips(tips: Tip[]): Promise<void> {
     );
 
     const shortId = betId.slice(0, 8);
+    newTips.push({ tip, stake, shortId });
+  }
 
+  if (!newTips.length) return;
+
+  const lines: string[] = [];
+  lines.push(`🎯 <b>HIGH CONFIDENCE TIPS</b>`);
+  lines.push(`Found: ${newTips.length} new tip(s)\n`);
+
+  for (const { tip, stake, shortId } of newTips) {
+    const kickoff = new Date(tip.startTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
     lines.push(`📌 <b>${tip.homeTeam} vs ${tip.awayTeam}</b>`);
     lines.push(`${tip.league} | KO: ${kickoff} | ${tip.hoursToKickoff}h away`);
     lines.push(`▶ <b>${tip.targetSelection}</b> @ ${tip.localOdds} (${tip.localBookmaker})`);
