@@ -7,6 +7,8 @@ import { RealFetcher, SUPPORTED_SPORTS, Sport } from '../../data-bridge/realFetc
 import { recordClosingLines } from '../../core/utils/clvTracker';
 import { logger } from '../../core/utils/logger';
 import { recordOddsSnapshot } from '../../core/engine/oddsHistoryRecorder';
+import { runTipScanner, Tip } from '../../core/engine/tipScanner';
+import { notifyValueBets, notifyTips } from '../../core/utils/telegramNotifier';
 
 // ─── DISPLAY HELPERS ──────────────────────────────────────────────────────────
 
@@ -79,6 +81,29 @@ function printResults(result: EngineResult, sport: string) {
   console.log('\n\x1b[34m' + '═'.repeat(60) + '\x1b[0m\n');
 }
 
+function printTips(tips: Tip[]) {
+  console.log('\n\x1b[1m\x1b[33m' + '═'.repeat(60) + '\x1b[0m');
+  console.log('\x1b[1m\x1b[33m   🎯 TIP SCANNER — HIGH CONFIDENCE PICKS\x1b[0m');
+  console.log('\x1b[1m\x1b[33m' + '═'.repeat(60) + '\x1b[0m\n');
+
+  if (!tips.length) {
+    console.log('   \x1b[90mNo qualifying tips found.\x1b[0m\n');
+    return;
+  }
+
+  for (const tip of tips) {
+    const kickoff = new Date(tip.startTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    console.log(`\n   \x1b[36m${tip.homeTeam} vs ${tip.awayTeam}\x1b[0m`);
+    console.log(`   \x1b[90m${tip.league} | KO: ${kickoff} | ${tip.hoursToKickoff}h away\x1b[0m`);
+    console.log(`   \x1b[32m▶ ${tip.targetSelection}\x1b[0m @ \x1b[1m${tip.localOdds}\x1b[0m (${tip.localBookmaker})`);
+    console.log(`   Confidence : \x1b[32m${tip.confidence}%\x1b[0m`);
+    console.log(`   Signal     : \x1b[33m${tip.signal}\x1b[0m`);
+    console.log('   ' + '─'.repeat(60));
+  }
+
+  console.log('\n\x1b[33m' + '═'.repeat(60) + '\x1b[0m\n');
+}
+
 function printSummary(allResults: { sport: string; result: EngineResult }[]) {
   const totalBets    = allResults.reduce((s, r) => s + r.result.betsFound, 0);
   const totalMatches = allResults.reduce((s, r) => s + r.result.matchesProcessed, 0);
@@ -126,9 +151,8 @@ async function runScan(sportArg?: string) {
   const fetcher = new RealFetcher();
   const repo    = new Repository(getDb());
 
-  // Clean up old matches before starting any processing
   repo.markOldMatchesAsCompleted();
-  
+
   const allResults: { sport: string; result: EngineResult }[] = [];
 
   for (const sport of sportsToScan) {
@@ -141,22 +165,31 @@ async function runScan(sportArg?: string) {
 
     printResults(result, sport);
     allResults.push({ sport, result });
+
+    // Notify Telegram for value bets per sport
+    await notifyValueBets(result, sport);
   }
 
   if (sportsToScan.length > 1) {
     printSummary(allResults);
   }
+
   // Record Pinnacle odds snapshot for tip scanner
-logger.info('[scan] Recording Pinnacle odds snapshot...');
-recordOddsSnapshot();
-logger.info('[scan] Odds snapshot recorded.');
+  logger.info('[scan] Recording Pinnacle odds snapshot...');
+  recordOddsSnapshot();
+  logger.info('[scan] Odds snapshot recorded.');
 
-// Finalizing pipeline with CLV Tracking
-logger.info('[scan] Running CLV tracker for upcoming matches...');
-await recordClosingLines(repo);
-logger.info('[scan] CLV tracking complete.');
+  // CLV Tracking
+  logger.info('[scan] Running CLV tracker for upcoming matches...');
+  await recordClosingLines(repo);
+  logger.info('[scan] CLV tracking complete.');
 
-
+  // Run tip scanner and notify
+  logger.info('[scan] Running tip scanner...');
+  const tips = runTipScanner(24);
+  printTips(tips);
+  await notifyTips(tips);
+  logger.info(`[scan] Tip scanner complete — ${tips.length} tips found.`);
 }
 
 const sportArg = process.argv[2];
