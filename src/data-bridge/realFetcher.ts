@@ -9,6 +9,7 @@ import { scrapeTennisH2H, TennisAbstractH2H } from '../scrapers/tennis/tennisAbs
 import { fetchLeagueData, fetchH2H, findTeam, FCSTATS_LEAGUE_MAP } from '../scrapers/football/fcStatsScraper';
 import { v4 as uuidv4 } from 'uuid';
 import { fetchFDCOH2H, FDCO_LEAGUE_MAP } from '../scrapers/football/footballDataScraper';
+import { fetchWNBAH2H } from '../scrapers/basketball/wnbaScraper';
 
 export interface RealFetchResult {
   sport: string;
@@ -37,7 +38,7 @@ async function fetchHtmlPlain(url: string): Promise<string> {
   return res.text();
 }
 
-// ─── TENNIS STATS MAPPING ──────────────────────────────────────────────────
+// ─── TENNIS STATS MAPPING ───────────────────────────────────────────────────
 
 function tennisStatsToRawStats(h2h: TennisAbstractH2H, externalMatchId: string): any {
   const syntheticH2H = h2h.matches.slice(0, 6).map(m => ({
@@ -69,6 +70,55 @@ function tennisStatsToRawStats(h2h: TennisAbstractH2H, externalMatchId: string):
       awayCareerWinPct: h2h.player2Stats.careerWinPct,
       homeYtdWinPct: h2h.player1Stats.ytdWinPct,
       awayYtdWinPct: h2h.player2Stats.ytdWinPct,
+    },
+  };
+}
+
+// ─── BASKETBALL STATS MAPPING ───────────────────────────────────────────────
+
+function basketballStatsToRawStats(
+  h2h: Awaited<ReturnType<typeof fetchWNBAH2H>>,
+  externalMatchId: string,
+): any {
+  const hasH2H   = !!h2h && h2h.recentMatches.length > 0;
+  const hasForm  = !!h2h && (h2h.homeForm.length > 0 || h2h.awayForm.length > 0);
+
+  return {
+    externalMatchId,
+    sport: 'basketball',
+    confidenceFactors: {
+      dataCompleteness: hasH2H && hasForm ? 0.75 : hasH2H ? 0.55 : 0.4,
+    },
+    h2h: h2h ? h2h.recentMatches.map(m => ({
+      date:      m.date,
+      homeTeam:  m.homeTeam,
+      awayTeam:  m.awayTeam,
+      homeScore: m.homeScore,
+      awayScore: m.awayScore,
+    })) : [],
+    homeForm: h2h ? h2h.homeForm.map(f => ({
+      date:         f.date,
+      opponent:     f.opponent,
+      result:       f.result,
+      goalsFor:     f.goalsFor,
+      goalsAgainst: f.goalsAgainst,
+      venue:        f.venue,
+    })) : [],
+    awayForm: h2h ? h2h.awayForm.map(f => ({
+      date:         f.date,
+      opponent:     f.opponent,
+      result:       f.result,
+      goalsFor:     f.goalsFor,
+      goalsAgainst: f.goalsAgainst,
+      venue:        f.venue,
+    })) : [],
+    referee:   { name: '', avgYellowCards: 0, avgRedCards: 0, avgFouls: 0 },
+    situational: { weather: 'clear', temperature: 20, fatigueDays: 1 },
+    additionalContext: {
+      pace:       h2h ? h2h.pace : null,
+      homeWinPct: h2h ? h2h.homeWin / 100 : null,
+      awayWinPct: h2h ? h2h.awayWin / 100 : null,
+      overPct:    h2h ? h2h.overUnder35 / 100 : null,
     },
   };
 }
@@ -145,7 +195,7 @@ function saveTeamMapping(sport: string, teamName: string, oddspapiParticipantId?
   `).run(uuidv4(), sport, teamName, normalize(teamName), oddspapiParticipantId ?? null);
 }
 
-// ─── REAL FETCHER ─────────────────────────────────────────────────────────────
+// ─── REAL FETCHER ────────────────────────────────────────────────────────────
 
 export class RealFetcher {
   private repo: Repository;
@@ -198,10 +248,8 @@ export class RealFetcher {
       }
 
       // ── PRE-FETCH FOOTBALL LEAGUE TABLES ONCE PER SPORT RUN ──────────
-      // Only store non-null results — null means FCStats failed for that league.
       const footballLeagueCache = new Map<string, NonNullable<Awaited<ReturnType<typeof fetchLeagueData>>>>();
       if (sport === 'football') {
-        // Collect unique leagues present in this batch
         const leaguesInBatch = new Set(validMatches.map(m => m.league));
         console.log(`[DEBUG LEAGUES] leagues in batch:`, [...leaguesInBatch]);
 
@@ -240,13 +288,15 @@ export class RealFetcher {
             }
           }
 
-          // ── STATS ────────────────────────────────────────────────────
+          // ── STATS ─────────────────────────────────────────────────────
           if (sport === 'tennis' && tennisStatsFetched < MAX_TENNIS_STATS) {
             await this.fetchAndSaveTennisStats(match, matchId, result);
             tennisStatsFetched++;
             await new Promise(r => setTimeout(r, 5000));
           } else if (sport === 'football') {
             await this.fetchAndSaveFootballStats(match, matchId, footballLeagueCache, result);
+          } else if (sport === 'basketball') {
+            await this.fetchAndSaveBasketballStats(match, matchId, result);
           } else {
             logger.debug(`[RealFetcher] Stats not yet supported for ${sport}`, {
               home: match.homeTeam,
@@ -359,11 +409,11 @@ export class RealFetcher {
         return;
       }
 
-      // Try football-data.co.uk CSV first (covers Nordic leagues), fall back to FCStats
-let h2h = await fetchFDCOH2H(match.homeTeam, match.awayTeam, match.league);
-if (!h2h) {
-  h2h = await fetchH2H(match.homeTeam, match.awayTeam, leagueData);
-}
+      // Try football-data.co.uk CSV first, fall back to FCStats
+      let h2h = await fetchFDCOH2H(match.homeTeam, match.awayTeam, match.league);
+      if (!h2h) {
+        h2h = await fetchH2H(match.homeTeam, match.awayTeam, leagueData);
+      }
 
       const rawStats = footballStatsToRawStats(
         h2h,
@@ -406,6 +456,55 @@ if (!h2h) {
       logger.warn('[RealFetcher] Football scrape failed — continuing without stats', {
         match: `${match.homeTeam} vs ${match.awayTeam}`,
         error: scrapeErr.message,
+      });
+    }
+  }
+
+  private async fetchAndSaveBasketballStats(
+    match: { homeTeam: string; awayTeam: string; externalId?: string },
+    matchId: string,
+    result: RealFetchResult,
+  ): Promise<void> {
+    try {
+      const h2h = await fetchWNBAH2H(match.homeTeam, match.awayTeam);
+
+      if (!h2h) {
+        logger.warn('[RealFetcher] No WNBA H2H data found', {
+          match: `${match.homeTeam} vs ${match.awayTeam}`,
+        });
+        return;
+      }
+
+      const rawStats = basketballStatsToRawStats(h2h, match.externalId!);
+      const cleanedStats = this.cleaner.cleanStats(rawStats, matchId, 'basketball');
+      if (!cleanedStats) return;
+
+      const statsValidation = this.validator.validateStats(cleanedStats);
+      if (!statsValidation.valid) {
+        logger.warn('[RealFetcher] Basketball stats failed validation', {
+          match: `${match.homeTeam} vs ${match.awayTeam}`,
+          errors: statsValidation.errors,
+        });
+        return;
+      }
+
+      if (statsValidation.confidenceAdjustment < 1) {
+        cleanedStats.confidenceFactors.dataCompleteness = parseFloat(
+          (cleanedStats.confidenceFactors.dataCompleteness * statsValidation.confidenceAdjustment).toFixed(4)
+        );
+      }
+
+      this.repo.upsertStats(cleanedStats);
+      result.statsSaved++;
+      logger.info('[RealFetcher] Basketball stats saved', {
+        match: `${match.homeTeam} vs ${match.awayTeam}`,
+        h2hRecords: h2h.recentMatches.length,
+      });
+
+    } catch (err: any) {
+      logger.warn('[RealFetcher] Basketball stats fetch failed — continuing without stats', {
+        match: `${match.homeTeam} vs ${match.awayTeam}`,
+        error: err.message,
       });
     }
   }
