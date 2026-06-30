@@ -72,10 +72,12 @@ function logPendingBet(
 function isDuplicateBet(betType: 'value_bet' | 'tip', matchId: string, selection: string): boolean {
   const existing = db.prepare(`
     SELECT id FROM bet_results
-    WHERE betType = ? AND matchId = ? AND selection = ? AND result = 'pending'
+    WHERE betType = ? AND matchId = ? AND selection = ?
+    AND result IN ('pending', 'won', 'lost')
   `).get(betType, matchId, selection);
   return !!existing;
 }
+
 
 // ─── VALUE BETS ──────────────────────────────────────────────────────────────
 

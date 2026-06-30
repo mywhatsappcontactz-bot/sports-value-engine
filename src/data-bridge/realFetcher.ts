@@ -8,6 +8,7 @@ import { oddsClient } from './apiClients/oddsClient';
 import { scrapeTennisH2H, TennisAbstractH2H } from '../scrapers/tennis/tennisAbstractScraper';
 import { fetchLeagueData, fetchH2H, findTeam, FCSTATS_LEAGUE_MAP } from '../scrapers/football/fcStatsScraper';
 import { v4 as uuidv4 } from 'uuid';
+import { fetchFDCOH2H, FDCO_LEAGUE_MAP } from '../scrapers/football/footballDataScraper';
 
 export interface RealFetchResult {
   sport: string;
@@ -358,7 +359,11 @@ export class RealFetcher {
         return;
       }
 
-      const h2h = await fetchH2H(match.homeTeam, match.awayTeam, leagueData);
+      // Try football-data.co.uk CSV first (covers Nordic leagues), fall back to FCStats
+let h2h = await fetchFDCOH2H(match.homeTeam, match.awayTeam, match.league);
+if (!h2h) {
+  h2h = await fetchH2H(match.homeTeam, match.awayTeam, leagueData);
+}
 
       const rawStats = footballStatsToRawStats(
         h2h,

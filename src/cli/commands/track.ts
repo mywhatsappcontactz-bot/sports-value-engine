@@ -165,25 +165,29 @@ async function recordCLVForSport(repo: Repository, sport: Sport): Promise<number
 
   let recorded = 0;
 
-  // Fetch fresh odds (live, near-closing) for this sport
-  let live: { matches: any[]; oddsMap: Map<string, any[]> };
-  try {
-    oddsClient.clearCache(sport); // force a fresh pull, not the cached scan-time snapshot
-    live = await oddsClient.fetchForSport(sport);
-  } catch (err: any) {
-    logger.warn(`[Tracker] Failed to fetch live odds for CLV (${sport})`, { error: err.message });
-    return 0;
-  }
-
   for (const bet of pendingBets) {
     const externalId = (bet as any).externalId;
-    const currentOdds = live.oddsMap.get(externalId);
-    if (!currentOdds) continue;
+    const startTime  = (bet as any).startTime;
 
-    const pinnacleLine = currentOdds.find(
-      (o: any) => o.bookmaker === 'Pinnacle' && o.market === bet.market && o.selection === bet.selection,
-    );
-    if (!pinnacleLine) continue;
+    // Use last odds_history snapshot before kickoff — avoids live fetch
+    // which fails for matches that have already started (Pinnacle removes odds)
+    const pinnacleLine = db.prepare(`
+      SELECT oh.odds
+      FROM odds_history oh
+      JOIN matches m ON m.id = oh.matchId
+      WHERE m.externalId = ?
+        AND oh.bookmaker  = 'Pinnacle'
+        AND oh.market     = ?
+        AND oh.selection  = ?
+        AND oh.timestamp  < ?
+      ORDER BY oh.timestamp DESC
+      LIMIT 1
+    `).get(externalId, bet.market, bet.selection, startTime) as { odds: number } | undefined;
+
+    if (!pinnacleLine) {
+      logger.debug(`[Tracker] No pre-kickoff Pinnacle snapshot for bet ${bet.id}`);
+      continue;
+    }
 
     const { clvValue, clvPercentage } = calculateCLV(bet.bookmakerOdds, pinnacleLine.odds);
 

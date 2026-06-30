@@ -385,9 +385,41 @@ export async function fetchH2H(
   }
 }
 
+// ─── TEAM ALIAS MAP (OddsAPI name → FCStats normalized name) ──────────────
+const TEAM_ALIASES: Record<string, string> = {
+  // Finland
+  'sjk seinjoki':              'seinjoen jalkapallokerho',
+  'ifk mariehamn':             'mariehamn',
+  'fc inter turku':            'inter turku',
+  'fc lahti':                  'lahti',
+  'if gnistan':                'gnistan',
+  'ilves tampere':             'tampereen ilves',
+  'kups kuopio':               'kups kuopio',
+  // Ireland
+  'shelbourne dublin':         'shelbourne',
+  'waterford fc':              'waterford united',
+  'bohemians':                 'bohemian fc',
+  // China
+  'beijing fc':                'beijing guoan',
+  'shandong luneng taishan fc':'shandong taishan',
+  'shanghai sipg fc':          'shanghai port',
+  'henan fc':                  'henan songshan longmen',
+  'shenzhen peng city fc':     'shenzhen xinpengcheng',
+  'tianjin jinmen tiger fc':   'tianjin tigers',
+  'chongqing tonglianglong fc':'chongqing tonglianglong',
+  'qingdao west coast fc':     'qingdao west coast',
+  'qingdao hainiu fc':         'qingdao hainiu',
+  'zhejiang':                  'zhejiang professional',
+  'shanghai shenhua fc':       'shanghai shenhua',
+  'chengdu rongcheng fc':      'chengdu rongcheng',
+  'liaoning tieren fc':        'liaoning tieren',
+};
+
 export function findTeam(leagueData: LeagueData, teamName: string): FCTeamStats | null {
   const key = normalize(teamName);
-  if (leagueData.teams.has(key)) return leagueData.teams.get(key)!;
+  const aliasKey = TEAM_ALIASES[key] ?? key;
+  if (leagueData.teams.has(aliasKey)) return leagueData.teams.get(aliasKey)!;
+  if (aliasKey !== key && leagueData.teams.has(key)) return leagueData.teams.get(key)!;
 
   let best: FCTeamStats | null = null;
   let bestScore = 0;
