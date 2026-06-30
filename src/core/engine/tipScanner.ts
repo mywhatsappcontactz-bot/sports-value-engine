@@ -4,7 +4,7 @@ import { logger } from '../utils/logger';
 
 const db = getDb();
 
-// ─── TYPES ───────────────────────────────────────────────────────────────────
+// ─── TYPES ────────────────────────────────────────────────────────────────────
 
 export interface Tip {
   matchId: string;
@@ -28,7 +28,7 @@ export interface Tip {
   signal: string;
 }
 
-// ─── BRIDGE LOGIC (TOTALS) ───────────────────────────────────────────────────
+// ─── BRIDGE LOGIC (FOOTBALL TOTALS) ──────────────────────────────────────────
 
 function getBridgeTarget(
   pinnacleLineValue: number,
@@ -62,7 +62,36 @@ function getBridgeTarget(
   return null;
 }
 
-// ─── LINE VALUE PARSER ───────────────────────────────────────────────────────
+// ─── BRIDGE LOGIC (BASKETBALL TOTALS) ────────────────────────────────────────
+
+function getBasketballBridgeTarget(
+  lineValue: number,
+  direction: 'Over' | 'Under'
+): { targetSelection: string; signal: string } | null {
+
+  // WNBA lines typically 155-175
+  if (direction === 'Over') {
+    if (lineValue >= 140 && lineValue <= 180) {
+      return {
+        targetSelection: `Over ${lineValue}`,
+        signal: `Pinnacle Over ${lineValue} dropping — sharp money expects high-scoring game`,
+      };
+    }
+  }
+
+  if (direction === 'Under') {
+    if (lineValue >= 140 && lineValue <= 180) {
+      return {
+        targetSelection: `Under ${lineValue}`,
+        signal: `Pinnacle Under ${lineValue} dropping — sharp money expects low-scoring game`,
+      };
+    }
+  }
+
+  return null;
+}
+
+// ─── LINE VALUE PARSER ────────────────────────────────────────────────────────
 
 function parseSelection(selection: string): { direction: 'Over' | 'Under'; lineValue: number } | null {
   const match = selection.match(/^(Over|Under)\s+([\d.]+)$/i);
@@ -73,22 +102,22 @@ function parseSelection(selection: string): { direction: 'Over' | 'Under'; lineV
   };
 }
 
-// ─── DEVIG PINNACLE (TOTALS) ─────────────────────────────────────────────────
+// ─── DEVIG PINNACLE (TOTALS) ──────────────────────────────────────────────────
 
 function calculateTrueProbability(
   overOdds: number,
   underOdds: number,
   direction: 'Over' | 'Under'
 ): number {
-  const overImplied = 1 / overOdds;
+  const overImplied  = 1 / overOdds;
   const underImplied = 1 / underOdds;
-  const total = overImplied + underImplied;
-  const overTrue = overImplied / total;
-  const underTrue = underImplied / total;
+  const total        = overImplied + underImplied;
+  const overTrue     = overImplied / total;
+  const underTrue    = underImplied / total;
   return direction === 'Over' ? overTrue : underTrue;
 }
 
-// ─── DEVIG PINNACLE (MONEYLINE) ──────────────────────────────────────────────
+// ─── DEVIG PINNACLE (MONEYLINE) ───────────────────────────────────────────────
 
 function calculateMoneylineTrueProbability(
   homeOdds: number,
@@ -99,9 +128,9 @@ function calculateMoneylineTrueProbability(
   const homeImplied = 1 / homeOdds;
   const awayImplied = 1 / awayOdds;
   const drawImplied = drawOdds ? 1 / drawOdds : 0;
-  const total = homeImplied + awayImplied + drawImplied;
-  const homeTrue = homeImplied / total;
-  const awayTrue = awayImplied / total;
+  const total       = homeImplied + awayImplied + drawImplied;
+  const homeTrue    = homeImplied / total;
+  const awayTrue    = awayImplied / total;
   return side === 'home' ? homeTrue : awayTrue;
 }
 
@@ -112,7 +141,6 @@ function scanTennisMoneyline(
   hoursToKickoff: number,
   tips: Tip[]
 ): void {
-  // Get current Pinnacle moneyline odds
   const currentPinnacleOdds = db.prepare(`
     SELECT selection, odds
     FROM odds
@@ -121,7 +149,6 @@ function scanTennisMoneyline(
 
   if (!currentPinnacleOdds.length) return;
 
-  // Get earliest Pinnacle moneyline snapshot
   const previousSnapshot = db.prepare(`
     SELECT selection, odds, timestamp
     FROM odds_history
@@ -132,51 +159,36 @@ function scanTennisMoneyline(
 
   if (!previousSnapshot.length) return;
 
-  // Map current odds by selection
   const currentBySelection = new Map<string, number>();
-  for (const o of currentPinnacleOdds) {
-    currentBySelection.set(o.selection, o.odds);
-  }
+  for (const o of currentPinnacleOdds) currentBySelection.set(o.selection, o.odds);
 
-  // Map earliest snapshot by selection
   const previousBySelection = new Map<string, number>();
   for (const o of previousSnapshot) {
-    if (!previousBySelection.has(o.selection)) {
-      previousBySelection.set(o.selection, o.odds);
-    }
+    if (!previousBySelection.has(o.selection)) previousBySelection.set(o.selection, o.odds);
   }
 
-  // Tennis h2h selections are player names (homeTeam / awayTeam)
   const homeSelection = match.homeTeam;
   const awaySelection = match.awayTeam;
 
-  const currentHome = currentBySelection.get(homeSelection);
-  const currentAway = currentBySelection.get(awaySelection);
+  const currentHome  = currentBySelection.get(homeSelection);
+  const currentAway  = currentBySelection.get(awaySelection);
   const previousHome = previousBySelection.get(homeSelection);
   const previousAway = previousBySelection.get(awaySelection);
 
   if (!currentHome || !currentAway || !previousHome || !previousAway) return;
 
-  // Check both sides for movement
   const sides = [
     { selection: homeSelection, current: currentHome, previous: previousHome, side: 'home' as const },
     { selection: awaySelection, current: currentAway, previous: previousAway, side: 'away' as const },
   ];
 
   for (const { selection, current, previous, side } of sides) {
-    // Odds dropped = sharp money on this player
     const oddsDropPct = ((previous - current) / previous) * 100;
     if (oddsDropPct < 2) continue;
 
-    // Devig to get true probability
-    const trueProbability = calculateMoneylineTrueProbability(
-      currentHome, currentAway, null, side
-    );
-
-    // Minimum confidence threshold for tennis
+    const trueProbability = calculateMoneylineTrueProbability(currentHome, currentAway, null, side);
     if (trueProbability < 0.62) continue;
 
-    // Find best local bookmaker odds for this player
     const localOdds = db.prepare(`
       SELECT bookmaker, odds
       FROM odds
@@ -190,44 +202,41 @@ function scanTennisMoneyline(
     `).get(match.id, selection) as any;
 
     if (!localOdds) continue;
-
-    // Skip if local odds are worse than Pinnacle (no value)
     if (localOdds.odds < current) continue;
 
     const signal = `Pinnacle ${selection} dropping ${oddsDropPct.toFixed(1)}% — sharp money on ${side === 'home' ? match.homeTeam : match.awayTeam}`;
 
     tips.push({
-      matchId: match.id,
-      homeTeam: match.homeTeam,
-      awayTeam: match.awayTeam,
-      league: match.league,
-      sport: match.sport,
-      startTime: match.startTime,
-      hoursToKickoff: parseFloat(hoursToKickoff.toFixed(1)),
-      pinnacleLineValue: current,
+      matchId:              match.id,
+      homeTeam:             match.homeTeam,
+      awayTeam:             match.awayTeam,
+      league:               match.league,
+      sport:                match.sport,
+      startTime:            match.startTime,
+      hoursToKickoff:       parseFloat(hoursToKickoff.toFixed(1)),
+      pinnacleLineValue:    current,
       pinnacleLineDirection: side === 'home' ? 'Home' : 'Away',
-      previousOdds: previous,
-      currentOdds: current,
-      oddsDropPct: parseFloat(oddsDropPct.toFixed(2)),
-      trueProbability: parseFloat(trueProbability.toFixed(4)),
-      targetMarket: 'moneyline',
-      targetSelection: selection,
-      localBookmaker: localOdds.bookmaker,
-      localOdds: localOdds.odds,
-      confidence: parseFloat((trueProbability * 100).toFixed(1)),
+      previousOdds:         previous,
+      currentOdds:          current,
+      oddsDropPct:          parseFloat(oddsDropPct.toFixed(2)),
+      trueProbability:      parseFloat(trueProbability.toFixed(4)),
+      targetMarket:         'moneyline',
+      targetSelection:      selection,
+      localBookmaker:       localOdds.bookmaker,
+      localOdds:            localOdds.odds,
+      confidence:           parseFloat((trueProbability * 100).toFixed(1)),
       signal,
     });
   }
 }
 
-// ─── MAIN SCANNER ────────────────────────────────────────────────────────────
+// ─── MAIN SCANNER ─────────────────────────────────────────────────────────────
 
 export function runTipScanner(hoursWindow: number = 6): Tip[] {
   const tips: Tip[] = [];
-  const now = new Date();
+  const now           = new Date();
   const kickoffCutoff = new Date(now.getTime() + hoursWindow * 60 * 60 * 1000).toISOString();
 
-  // Get upcoming matches within time window
   const matches = db.prepare(`
     SELECT id, homeTeam, awayTeam, league, sport, startTime
     FROM matches
@@ -247,15 +256,14 @@ export function runTipScanner(hoursWindow: number = 6): Tip[] {
   for (const match of matches) {
     const hoursToKickoff = (new Date(match.startTime).getTime() - now.getTime()) / (1000 * 60 * 60);
 
-    // ── TENNIS: moneyline scanner ──────────────────────────────────────────
+    // ── TENNIS: moneyline scanner ─────────────────────────────────────────
     if (match.sport === 'tennis') {
       scanTennisMoneyline(match, hoursToKickoff, tips);
       continue;
     }
 
-    // ── OTHER SPORTS: totals scanner ───────────────────────────────────────
+    // ── FOOTBALL + BASKETBALL: totals scanner ─────────────────────────────
 
-    // Get current Pinnacle odds for this match
     const currentPinnacleOdds = db.prepare(`
       SELECT selection, odds, impliedProbability
       FROM odds
@@ -264,7 +272,6 @@ export function runTipScanner(hoursWindow: number = 6): Tip[] {
 
     if (!currentPinnacleOdds.length) continue;
 
-    // Get previous Pinnacle odds snapshot
     const previousSnapshot = db.prepare(`
       SELECT selection, odds, timestamp
       FROM odds_history
@@ -275,21 +282,14 @@ export function runTipScanner(hoursWindow: number = 6): Tip[] {
 
     if (!previousSnapshot.length) continue;
 
-    // Group current odds by selection
     const currentBySelection = new Map<string, number>();
-    for (const o of currentPinnacleOdds) {
-      currentBySelection.set(o.selection, o.odds);
-    }
+    for (const o of currentPinnacleOdds) currentBySelection.set(o.selection, o.odds);
 
-    // Group previous odds by selection (earliest snapshot)
     const previousBySelection = new Map<string, number>();
     for (const o of previousSnapshot) {
-      if (!previousBySelection.has(o.selection)) {
-        previousBySelection.set(o.selection, o.odds);
-      }
+      if (!previousBySelection.has(o.selection)) previousBySelection.set(o.selection, o.odds);
     }
 
-    // Detect line movement
     for (const [selection, currentOdds] of currentBySelection) {
       const parsed = parseSelection(selection);
       if (!parsed) continue;
@@ -297,29 +297,25 @@ export function runTipScanner(hoursWindow: number = 6): Tip[] {
       const previousOdds = previousBySelection.get(selection);
       if (!previousOdds) continue;
 
-      // Odds dropped = implied probability increased = sharp money came in
       const oddsDropPct = ((previousOdds - currentOdds) / previousOdds) * 100;
       if (oddsDropPct < 2) continue;
 
       const { direction, lineValue } = parsed;
 
-      // Get opposite side for devig
-      const oppositeSelection = direction === 'Over'
-        ? `Under ${lineValue}`
-        : `Over ${lineValue}`;
-      const oppositeOdds = currentBySelection.get(oppositeSelection);
+      const oppositeSelection = direction === 'Over' ? `Under ${lineValue}` : `Over ${lineValue}`;
+      const oppositeOdds      = currentBySelection.get(oppositeSelection);
       if (!oppositeOdds) continue;
 
-      // Calculate true probability
-      const overOdds = direction === 'Over' ? currentOdds : oppositeOdds;
-      const underOdds = direction === 'Under' ? currentOdds : oppositeOdds;
+      const overOdds        = direction === 'Over' ? currentOdds : oppositeOdds;
+      const underOdds       = direction === 'Under' ? currentOdds : oppositeOdds;
       const trueProbability = calculateTrueProbability(overOdds, underOdds, direction);
 
-      // Apply bridge logic
-      const bridge = getBridgeTarget(lineValue, direction);
+      // Sport-specific bridge logic
+      const bridge = match.sport === 'basketball'
+        ? getBasketballBridgeTarget(lineValue, direction)
+        : getBridgeTarget(lineValue, direction);
       if (!bridge) continue;
 
-      // Find local bookmaker odds for target selection
       const localOdds = db.prepare(`
         SELECT bookmaker, odds
         FROM odds
@@ -337,34 +333,33 @@ export function runTipScanner(hoursWindow: number = 6): Tip[] {
       // Minimum confidence threshold
       if (trueProbability < 0.72) continue;
 
-      // Push protection — skip flat integer lines
-      if (Number.isInteger(lineValue) && oddsDropPct < 5) continue;
+      // Push protection — skip flat integer lines for football only
+      if (match.sport === 'football' && Number.isInteger(lineValue) && oddsDropPct < 5) continue;
 
       tips.push({
-        matchId: match.id,
-        homeTeam: match.homeTeam,
-        awayTeam: match.awayTeam,
-        league: match.league,
-        sport: match.sport,
-        startTime: match.startTime,
-        hoursToKickoff: parseFloat(hoursToKickoff.toFixed(1)),
-        pinnacleLineValue: lineValue,
+        matchId:              match.id,
+        homeTeam:             match.homeTeam,
+        awayTeam:             match.awayTeam,
+        league:               match.league,
+        sport:                match.sport,
+        startTime:            match.startTime,
+        hoursToKickoff:       parseFloat(hoursToKickoff.toFixed(1)),
+        pinnacleLineValue:    lineValue,
         pinnacleLineDirection: direction,
         previousOdds,
         currentOdds,
-        oddsDropPct: parseFloat(oddsDropPct.toFixed(2)),
-        trueProbability: parseFloat(trueProbability.toFixed(4)),
-        targetMarket: 'totals',
-        targetSelection: bridge.targetSelection,
-        localBookmaker: localOdds.bookmaker,
-        localOdds: localOdds.odds,
-        confidence: parseFloat((trueProbability * 100).toFixed(1)),
-        signal: bridge.signal,
+        oddsDropPct:          parseFloat(oddsDropPct.toFixed(2)),
+        trueProbability:      parseFloat(trueProbability.toFixed(4)),
+        targetMarket:         'totals',
+        targetSelection:      bridge.targetSelection,
+        localBookmaker:       localOdds.bookmaker,
+        localOdds:            localOdds.odds,
+        confidence:           parseFloat((trueProbability * 100).toFixed(1)),
+        signal:               bridge.signal,
       });
     }
   }
 
-  // Sort by confidence descending
   tips.sort((a, b) => b.confidence - a.confidence);
   logger.info(`[TipScanner] Found ${tips.length} qualifying tips`);
   return tips;
