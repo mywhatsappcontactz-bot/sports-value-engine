@@ -271,15 +271,23 @@ export async function scrapeTennisH2H(
     const player1Stats = extractPlayerStats(html, player1);
 
     const url2 = buildUrl(player2, player1);
-    let player2Stats: PlayerStats = {
+   let player2Stats: PlayerStats = {
       name: player2, careerWinPct: 0.5, ytdWinPct: 0.5,
       surfaceBest: null, recentForm: [],
     };
-    try {
-      const html2    = await fetchHtml(url2);
-      player2Stats   = extractPlayerStats(html2, player2);
-    } catch {
-      logger.warn('[TennisAbstract] Failed to fetch player2 stats', { player2 });
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const html2  = await fetchHtml(url2);
+        player2Stats = extractPlayerStats(html2, player2);
+        break;
+      } catch (err: any) {
+        if (attempt === 2) {
+          logger.warn('[TennisAbstract] Failed to fetch player2 stats after 2 attempts', { player2, error: err.message });
+        } else {
+          logger.debug('[TennisAbstract] Retrying player2 fetch', { player2, attempt });
+          await new Promise(r => setTimeout(r, 2000));
+        }
+      }
     }
 
     const result: TennisAbstractH2H = {
