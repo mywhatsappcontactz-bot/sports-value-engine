@@ -185,6 +185,128 @@ function scanTennisMoneyline(
   for (const { selection, current, previous, side } of sides) {
     const oddsDropPct = ((previous - current) / previous) * 100;
     if (oddsDropPct < 2) continue;
+    function scanTennisMoneyline(
+  match: any,
+  hoursToKickoff: number,
+  tips: Tip[]
+): void {
+  // ── STAT GATE — suppress if no stats or H2H win rate < 60% ──────────────
+  const statsRow = db.prepare(`
+    SELECT h2h, additionalContext FROM stats
+    WHERE matchId = ? AND sport = 'tennis'
+  `).get(match.id) as any;
+
+  if (!statsRow) return; // no stats — suppress entirely
+
+  const h2hRecords: { homeTeam: string; awayTeam: string; homeScore: number; awayScore: number }[] =
+    JSON.parse(statsRow.h2h || '[]');
+
+  const additionalContext = JSON.parse(statsRow.additionalContext || '{}');
+
+  const currentPinnacleOdds = db.prepare(`
+    SELECT selection, odds
+    FROM odds
+    WHERE matchId = ? AND bookmaker = 'Pinnacle' AND market = 'moneyline'
+  `).all(match.id) as any[];
+
+  if (!currentPinnacleOdds.length) return;
+
+  const previousSnapshot = db.prepare(`
+    SELECT selection, odds, timestamp
+    FROM odds_history
+    WHERE matchId = ? AND bookmaker = 'Pinnacle' AND market = 'moneyline'
+    ORDER BY timestamp ASC
+    LIMIT 20
+  `).all(match.id) as any[];
+
+  if (!previousSnapshot.length) return;
+
+  const currentBySelection = new Map<string, number>();
+  for (const o of currentPinnacleOdds) currentBySelection.set(o.selection, o.odds);
+
+  const previousBySelection = new Map<string, number>();
+  for (const o of previousSnapshot) {
+    if (!previousBySelection.has(o.selection)) previousBySelection.set(o.selection, o.odds);
+  }
+
+  const homeSelection = match.homeTeam;
+  const awaySelection = match.awayTeam;
+
+  const currentHome  = currentBySelection.get(homeSelection);
+  const currentAway  = currentBySelection.get(awaySelection);
+  const previousHome = previousBySelection.get(homeSelection);
+  const previousAway = previousBySelection.get(awaySelection);
+
+  if (!currentHome || !currentAway || !previousHome || !previousAway) return;
+
+  const sides = [
+    { selection: homeSelection, current: currentHome, previous: previousHome, side: 'home' as const },
+    { selection: awaySelection, current: currentAway, previous: previousAway, side: 'away' as const },
+  ];
+
+  for (const { selection, current, previous, side } of sides) {
+    const oddsDropPct = ((previous - current) / previous) * 100;
+    if (oddsDropPct < 2) continue;
+
+    // ── H2H WIN RATE GATE ─────────────────────────────────────────────────
+    if (h2hRecords.length > 0) {
+      const tippedIsHome = side === 'home';
+      const wins = h2hRecords.filter(g =>
+        tippedIsHome ? g.homeScore > g.awayScore : g.awayScore > g.homeScore
+      ).length;
+      const winRate = wins / h2hRecords.length;
+      if (winRate < 0.60) continue; // suppress if win rate below 60%
+    } else {
+      // No H2H records at all — use career win pct as fallback
+      const careerWinPct = side === 'home'
+        ? additionalContext.homeCareerWinPct
+        : additionalContext.awayCareerWinPct;
+      if (!careerWinPct || careerWinPct < 0.60) continue;
+    }
+
+    const trueProbability = calculateMoneylineTrueProbability(currentHome, currentAway, null, side);
+    if (trueProbability < 0.62) continue;
+
+    const localOdds = db.prepare(`
+      SELECT bookmaker, odds
+      FROM odds
+      WHERE matchId = ?
+      AND market = 'moneyline'
+      AND selection = ?
+      AND bookmaker != 'Pinnacle'
+      AND odds >= 1.20
+      ORDER BY odds DESC
+      LIMIT 1
+    `).get(match.id, selection) as any;
+
+    if (!localOdds) continue;
+    if (localOdds.odds < current) continue;
+
+    const signal = `Pinnacle ${selection} dropping ${oddsDropPct.toFixed(1)}% — sharp money on ${side === 'home' ? match.homeTeam : match.awayTeam}`;
+
+    tips.push({
+      matchId:               match.id,
+      homeTeam:              match.homeTeam,
+      awayTeam:              match.awayTeam,
+      league:                match.league,
+      sport:                 match.sport,
+      startTime:             match.startTime,
+      hoursToKickoff:        parseFloat(hoursToKickoff.toFixed(1)),
+      pinnacleLineValue:     current,
+      pinnacleLineDirection: side === 'home' ? 'Home' : 'Away',
+      previousOdds:          previous,
+      currentOdds:           current,
+      oddsDropPct:           parseFloat(oddsDropPct.toFixed(2)),
+      trueProbability:       parseFloat(trueProbability.toFixed(4)),
+      targetMarket:          'moneyline',
+      targetSelection:       selection,
+      localBookmaker:        localOdds.bookmaker,
+      localOdds:             localOdds.odds,
+      confidence:            parseFloat((trueProbability * 100).toFixed(1)),
+      signal,
+    });
+  }
+}
 
     const trueProbability = calculateMoneylineTrueProbability(currentHome, currentAway, null, side);
     if (trueProbability < 0.62) continue;
