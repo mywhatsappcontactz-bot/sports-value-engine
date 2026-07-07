@@ -11,26 +11,49 @@ const BASE_URL = 'https://api.the-odds-api.com/v4';
 
 const SPORT_KEYS: Record<string, string[]> = {
   football: [
+    // ── Currently active ──────────────────────────────
     'soccer_finland_veikkausliiga',
     'soccer_sweden_superettan',
     'soccer_sweden_allsvenskan',
     'soccer_norway_eliteserien',
     'soccer_league_of_ireland',
-    'soccer_spain_segunda_division',
     'soccer_brazil_serie_b',
     'soccer_china_superleague',
     'soccer_italy_serie_a',
     'soccer_brazil_campeonato',
+    'soccer_korea_kleague1',
+
+    // ── Starting mid/late July 2026 ───────────────────
+    'soccer_denmark_superliga',
+    'soccer_bulgaria_professional_league',
+
+    // ── Starting late July 2026 ───────────────────────
+    'soccer_scotland_premiership',
+    'soccer_belgium_first_div',
+    'soccer_austria_bundesliga',
+    'soccer_croatia_1_hnl',
+    'soccer_switzerland_superleague',
+
+    // ── Starting early August 2026 ────────────────────
+    'soccer_efl_champ',
+    'soccer_england_league1',
+    'soccer_england_league2',
+    'soccer_czech_republic_liga',
+
+    // ── EPL — starts August 2026 ──────────────────────
+    'soccer_epl',
+
+    // ── Russia/Poland — verify availability ───────────
+    'soccer_russia_premier_league',
+    'soccer_poland_ekstraklasa',
   ],
   basketball: [
-  
     'basketball_wnba',
   ],
   tennis: [
-  'tennis_wta_bad_homburg_open',
-  'tennis_atp_wimbledon',
-  'tennis_wta_wimbledon',
-
+    'tennis_atp_wimbledon',
+    'tennis_wta_wimbledon',
+    'tennis_wta_bad_homburg_open',
   ],
   hockey: [
     'icehockey_nhl',
@@ -43,7 +66,6 @@ const SPORT_MARKETS: Record<string, string> = {
   tennis:     'h2h',
   hockey:     'totals',
 };
-
 
 const SPORT_REGIONS: Record<string, string> = {
   football:   'eu',
@@ -294,7 +316,6 @@ export class OddsClient {
     for (const sportKey of sportKeys) {
       try {
         const events = await apiFetch<any[]>(`/sports/${sportKey}/odds`, {
-          
           regions: SPORT_REGIONS[sport] || 'eu',
           markets: market,
           oddsFormat: 'decimal',
@@ -323,11 +344,6 @@ export class OddsClient {
     return data;
   }
 
-  /**
-   * Fetch completed match results for a sport, looking back up to `daysFrom` days.
-   * Used by the bet tracker to resolve pending value bets.
-   * Cost: 2 credits per sportKey when daysFrom is specified.
-   */
   async fetchScores(sport: string, daysFrom: number = 3): Promise<RawScore[]> {
     const sportKeys = SPORT_KEYS[sport];
     if (!sportKeys?.length) {
@@ -345,7 +361,7 @@ export class OddsClient {
         });
 
         for (const event of (events || [])) {
-          if (!event.completed) continue; // only resolve finished matches
+          if (!event.completed) continue;
 
           const scoresArr = event.scores || [];
           const homeScoreEntry = scoresArr.find((s: any) => s.name === event.home_team);
