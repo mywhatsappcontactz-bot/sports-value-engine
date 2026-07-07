@@ -28,3 +28,4 @@ src/wipe-*.ts
 src/clean-*.ts
 vps-stats-dump.html
 soccerstats-raw.html
+check-quota.ts
