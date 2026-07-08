@@ -56,45 +56,37 @@ interface SerializedLeagueData {
   teams:     [string, FCTeamStats][];
   fetchedAt: number;
 }
-
-// ─── LEAGUE MAP ──────────────────────────────────────────────────────────────
 export const FCSTATS_LEAGUE_MAP: Record<string, string> = {
-  // ── Currently active ──────────────────────────────────
-  'Veikkausliiga - Finland':          'table,veikkausliiga-finland,44,1.php',
-  'League of Ireland':                'table,premier-league-ireland,45,1.php',
-  'Superettan - Sweden':              'table,superettan-sweden,78,1.php',
-  'La Liga 2 - Spain':                'table,segunda-division-spain,20,1.php',
-  'Brazil Série B':                   'table,serie-b-brazil,11,1.php',
-  'Eliteserien - Norway':             'table,eliteserien-norway,50,1.php',
-  'Allsvenskan - Sweden':             'table,allsvenskan-sweden,36,1.php',
-  'Serie A - Italy':                  'table,serie-a-italy,39,1.php',
-  'Super League - China':             'table,super-league-china,42,1.php',
-  'Brazil Série A':                   'table,serie-a-brazil,10,1.php',
-  'K League 1':                       'table,k-league-1-south-korea,65,1.php',
+  // ── Currently active ────────────────────────────────────────────
+  'Veikkausliiga - Finland':      'table,veikkausliiga-finland,44,1.php',
+  'League of Ireland':            'table,premier-league-ireland,45,1.php',
+  'Superettan - Sweden':          'table,superettan-sweden,78,1.php',
+  'Brazil Série B':               'table,serie-b-brazil,11,1.php',
+  'Eliteserien - Norway':         'table,eliteserien-norway,50,1.php',
+  'Allsvenskan - Sweden':         'table,allsvenskan-sweden,36,1.php',
+  'Serie A - Italy':              'table,serie-a-italy,39,1.php',
+  'Super League - China':         'table,super-league-china,42,1.php',
+  'Brazil Série A':               'table,serie-a-brazil,10,1.php',
+  'K League 1':                   'table,k-league-1-south-korea,65,1.php',
 
-  // ── Starting mid/late July 2026 ───────────────────────
-  'Superliga - Denmark':              'table,superliga-denmark,40,1.php',
-  'First Professional League - Bulgaria': 'table,first-league-bulgaria,30,1.php',
+  // ── Starting mid/late July 2026 ─────────────────────────────────
+  'Denmark Superliga':            'table,superliga-denmark,40,1.php',
+  'Austrian Football Bundesliga': 'table,bundesliga-austria,23,1.php',
 
-  // ── Starting late July 2026 ───────────────────────────
-  'Scottish Premiership':             'table,premiership-scotland,41,1.php',
-  'Jupiler Pro League - Belgium':     'table,jupiler-pro-league-belgium,28,1.php',
-  'Bundesliga - Austria':             'table,bundesliga-austria,23,1.php',
-  'HNL - Croatia':                    'table,hnl-croatia,44,1.php',
-  'Super League - Switzerland':       'table,super-league-switzerland,54,1.php',
+  // ── Starting late July 2026 ─────────────────────────────────────
+  'Premiership - Scotland':       'table,premiership-scotland,41,1.php',
+  'Swiss Superleague':            'table,super-league-switzerland,54,1.php',
 
-  // ── Starting early August 2026 ────────────────────────
-  'Championship - England':           'table,championship-england,18,1.php',
-  'League One - England':             'table,league-one-england,19,1.php',
-  'League Two - England':             'table,league-two-england,20,1.php',
-  'Czech Liga':                       'table,czech-liga,32,1.php',
-
-  // ── EPL — starts August 2026 ──────────────────────────
-  'EPL':                              'table,premier-league-england,1,1.php',
-
-  // ── Russia / Poland ───────────────────────────────────
-  'Premier League - Russia':          'table,premier-league-russia,93,1.php',
-  'Ekstraklasa - Poland':             'table,ekstraklasa-poland,84,1.php',
+  // ── Starting early August 2026 ──────────────────────────────────
+  'EPL':                          'table,premier-league-england,1,1.php',
+  'Championship':                 'table,championship-england,18,1.php',
+  'League 1':                     'table,league-one-england,19,1.php',
+  'League 2':                     'table,league-two-england,20,1.php',
+  'La Liga - Spain':              'table,la-liga-spain,17,1.php',
+  'La Liga 2 - Spain':            'table,segunda-division-spain,20,1.php',
+  'Ligue 1 - France':             'table,ligue-1-france,21,1.php',
+  'Bundesliga - Germany':         'table,bundesliga-germany,22,1.php',
+  'Dutch Eredivisie':             'table,eredivisie-netherlands,55,1.php',
 };
 
 // ─── PERSISTENT FILE CACHE ────────────────────────────────────────────────────
