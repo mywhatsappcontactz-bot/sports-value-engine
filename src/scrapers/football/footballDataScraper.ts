@@ -1,4 +1,4 @@
-﻿// src/scrapers/football/footballDataScraper.ts
+// src/scrapers/football/footballDataScraper.ts
 import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '../../core/utils/logger';
@@ -43,7 +43,7 @@ interface FDCOLeagueCache {
 
 const FDCO_BASE_NEW    = 'https://www.football-data.co.uk/new';
 const FDCO_BASE_SEASON = 'https://www.football-data.co.uk/mmz4281';
-const CACHE_TTL_MS     = 24 * 60 * 60 * 1000;
+const CACHE_TTL_MS     = 3 * 24 * 60 * 60 * 1000; // 3 days -- H2H history barely changes day to day
 const CACHE_DIR        = path.join(__dirname, '../../../.cache/stats');
 const MAX_H2H_MATCHES  = 10;
 
