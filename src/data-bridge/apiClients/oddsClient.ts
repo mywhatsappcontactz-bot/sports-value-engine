@@ -60,11 +60,18 @@ const SPORT_KEYS: Record<string, string[]> = {
   ],
 };
 
-const SPORT_MARKETS: Record<string, string> = {
-  football:   'totals',
-  basketball: 'totals',
-  tennis:     'h2h',
-  hockey:     'totals',
+// CHANGED: was a single market string per sport (football only ever got
+// 'totals' — moneyline and handicap odds were NEVER fetched for football,
+// meaning those bets could never fire regardless of model support).
+// Now each sport lists the markets to fetch, ONE AT A TIME (separate API
+// calls per market) — safer than combining, since a rejection/error on
+// one market doesn't take down the others, and easier to debug per-market
+// failures in the logs.
+const SPORT_MARKETS: Record<string, string[]> = {
+  football:   ['h2h', 'totals', 'spreads'],
+  basketball: ['h2h', 'totals'],
+  tennis:     ['h2h'],
+  hockey:     ['h2h', 'totals'],
 };
 
 const SPORT_REGIONS: Record<string, string> = {
@@ -234,7 +241,10 @@ function toMarketName(key: string): string | null {
   const map: Record<string, string> = {
     h2h:     'moneyline',
     totals:  'totals',
-    spreads: 'spread',
+    // FIXED: was 'spread' (no 'i') — didn't match the 'handicap' key
+    // used everywhere else (probabilityModel.ts, valueEngine.ts), so
+    // handicap odds were being fetched but silently never matched.
+    spreads: 'handicap',
   };
   return map[key] || null;
 }
@@ -266,6 +276,37 @@ function toBookmakerName(slug: string): string {
     bwin:        'Bwin',
   };
   return map[slug] ?? slug.charAt(0).toUpperCase() + slug.slice(1);
+}
+
+// Merges a new oddsMap into an accumulator oddsMap (concatenating odds
+// arrays for matches seen in more than one market pass, rather than
+// overwriting — needed now that we call the API once per market).
+function mergeOddsMaps(
+  target: Map<string, RawOdds[]>,
+  source: Map<string, RawOdds[]>,
+): void {
+  for (const [matchId, odds] of source) {
+    if (target.has(matchId)) {
+      target.get(matchId)!.push(...odds);
+    } else {
+      target.set(matchId, [...odds]);
+    }
+  }
+}
+
+// Merges matches lists, de-duplicating by externalId (the same match
+// will appear once per market pass — h2h, totals, spreads — since each
+// is now a separate API call).
+function mergeMatches(target: RawMatch[], source: RawMatch[]): RawMatch[] {
+  const seen = new Set(target.map(m => m.externalId));
+  const merged = [...target];
+  for (const m of source) {
+    if (!seen.has(m.externalId)) {
+      merged.push(m);
+      seen.add(m.externalId);
+    }
+  }
+  return merged;
 }
 
 // ─── RESULTS / SCORES TYPES ───────────────────────────────
@@ -300,39 +341,43 @@ export class OddsClient {
       throw new Error(`No sport keys configured for ${sport}`);
     }
 
-    const market = SPORT_MARKETS[sport];
-    if (!market) {
-      throw new Error(`No market configured for ${sport}`);
+    const markets = SPORT_MARKETS[sport];
+    if (!markets?.length) {
+      throw new Error(`No markets configured for ${sport}`);
     }
 
     logger.info(`[OddsClient] Fetching odds for ${sport}`, {
       leagues: sportKeys.length,
-      market,
+      markets,
     });
 
     let allMatches: RawMatch[] = [];
     let allOddsMap = new Map<string, RawOdds[]>();
 
+    // ONE MARKET AT A TIME: separate API call per market per league.
+    // Slower (more calls) but isolates failures — if 'spreads' isn't
+    // available for a league, 'h2h' and 'totals' still succeed
+    // independently instead of the whole request failing together.
     for (const sportKey of sportKeys) {
-      try {
-        const events = await apiFetch<any[]>(`/sports/${sportKey}/odds`, {
-          regions: SPORT_REGIONS[sport] || 'eu',
-          markets: market,
-          oddsFormat: 'decimal',
-        });
+      for (const market of markets) {
+        try {
+          const events = await apiFetch<any[]>(`/sports/${sportKey}/odds`, {
+            regions: SPORT_REGIONS[sport] || 'eu',
+            markets: market,
+            oddsFormat: 'decimal',
+          });
 
-        const { matches, oddsMap } = parseEvents(events || [], sport, sportKey);
-        allMatches = allMatches.concat(matches);
-        for (const [k, v] of oddsMap) {
-          allOddsMap.set(k, v);
+          const { matches, oddsMap } = parseEvents(events || [], sport, sportKey);
+          allMatches = mergeMatches(allMatches, matches);
+          mergeOddsMaps(allOddsMap, oddsMap);
+
+          logger.info(`[OddsClient] ${sportKey} [${market}]: ${matches.length} matches, ${oddsMap.size} with odds`);
+
+          await new Promise(r => setTimeout(r, 500));
+
+        } catch (err: any) {
+          logger.warn(`[OddsClient] Failed to fetch ${sportKey} [${market}]`, { error: err.message });
         }
-
-        logger.info(`[OddsClient] ${sportKey}: ${matches.length} matches, ${oddsMap.size} with odds`);
-
-        await new Promise(r => setTimeout(r, 500));
-
-      } catch (err: any) {
-        logger.warn(`[OddsClient] Failed to fetch ${sportKey}`, { error: err.message });
       }
     }
 

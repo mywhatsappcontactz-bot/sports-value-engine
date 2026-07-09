@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { getDb } from '../../core/database/db';
 import { logger } from '../../core/utils/logger';
 import { fetchLeagueData, findTeam, FCSTATS_LEAGUE_MAP } from '../../scrapers/football/fcStatsScraper';
+import { fetchFDCOH2H, FDCO_LEAGUE_MAP } from '../../scrapers/football/footballDataScraper';
 import { Cleaner } from '../../data-bridge/cleaner';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -13,6 +14,7 @@ const FOOTBALL_LEAGUES = Object.keys(FCSTATS_LEAGUE_MAP);
 async function scrapeFootball(): Promise<void> {
   let totalStatsSaved = 0;
   let totalFailed = 0;
+  let totalH2HFound = 0;
 
   for (const leagueName of FOOTBALL_LEAGUES) {
     logger.info(`[Scrape] Fetching league stats`, { leagueName });
@@ -23,6 +25,11 @@ async function scrapeFootball(): Promise<void> {
       totalFailed++;
       continue;
     }
+
+    // FDCO only covers a subset of leagues (see FDCO_LEAGUE_MAP) — check
+    // once per league rather than per match to avoid a wasted lookup on
+    // every single fixture in leagues FDCO doesn't cover.
+    const hasFDCOSource = !!FDCO_LEAGUE_MAP[leagueName];
 
     const matches = db.prepare(`
       SELECT id, homeTeam, awayTeam, externalId
@@ -74,16 +81,39 @@ async function scrapeFootball(): Promise<void> {
           ? parseFloat((awayForm.reduce((s, r) => s + r.goalsFor, 0) / awayForm.length).toFixed(2))
           : 0;
 
+        // ── H2H via FDCO (fixes previously hardcoded h2h: []) ──────────
+        // FCStats never provided H2H at all — this was the actual cause
+        // of most "H2H sample too small" validation failures, not just
+        // leagues FDCO doesn't cover. For leagues FDCO DOES cover, this
+        // is genuinely new data, not a fallback to something working.
+        let h2h: { date: string; homeTeam: string; awayTeam: string; homeScore: number; awayScore: number }[] = [];
+
+        if (hasFDCOSource) {
+          try {
+            const h2hStats = await fetchFDCOH2H(match.homeTeam, match.awayTeam, leagueName);
+            if (h2hStats && h2hStats.recentMatches.length > 0) {
+              h2h = h2hStats.recentMatches;
+              totalH2HFound++;
+            }
+          } catch (h2hErr: any) {
+            logger.warn(`[Scrape] FDCO H2H lookup failed`, {
+              match: `${match.homeTeam} vs ${match.awayTeam}`,
+              error: h2hErr.message,
+            });
+          }
+        }
+
         const hasForm  = homeForm.length >= 3 && awayForm.length >= 3;
         const hasGoals = homeGoalsAvg > 0 && awayGoalsAvg > 0;
-        const completeness = [hasForm, hasGoals].filter(Boolean).length / 2;
+        const hasH2H   = h2h.length >= 3;
+        const completeness = [hasForm, hasGoals, hasH2H].filter(Boolean).length / 3;
 
         const rawStats = {
           externalMatchId: match.externalId,
           sport:           'football',
           homeGoalsAvg,
           awayGoalsAvg,
-          h2h:             [],
+          h2h,
           homeForm,
           awayForm,
           referee: {
@@ -120,6 +150,7 @@ async function scrapeFootball(): Promise<void> {
             referee, situational, additionalContext, confidenceFactors, lastUpdated
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
           ON CONFLICT(matchId) DO UPDATE SET
+            h2h               = excluded.h2h,
             homeForm          = excluded.homeForm,
             awayForm          = excluded.awayForm,
             additionalContext = excluded.additionalContext,
@@ -144,6 +175,7 @@ async function scrapeFootball(): Promise<void> {
           homeGoalsAvg,
           awayGoalsAvg,
           formCount:   homeForm.length,
+          h2hCount:    h2h.length,
           completeness,
         });
 
@@ -159,8 +191,8 @@ async function scrapeFootball(): Promise<void> {
     await new Promise(r => setTimeout(r, 2000));
   }
 
-  logger.info(`[Scrape] Complete`, { totalStatsSaved, totalFailed });
-  console.log(`\nScrape complete — stats saved: ${totalStatsSaved}, failed: ${totalFailed}`);
+  logger.info(`[Scrape] Complete`, { totalStatsSaved, totalFailed, totalH2HFound });
+  console.log(`\nScrape complete — stats saved: ${totalStatsSaved}, failed: ${totalFailed}, matches with H2H: ${totalH2HFound}`);
 }
 
 const sport = process.argv[2] || 'football';

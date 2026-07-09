@@ -8,7 +8,7 @@ function printTips(tips: Tip[]) {
   console.log('\x1b[1m\x1b[33m' + '═'.repeat(60) + '\x1b[0m\n');
 
   if (!tips.length) {
-    console.log('   \x1b[90mNo qualifying tips found. Scan more frequently or wait for line movement.\x1b[0m\n');
+    console.log('   \x1b[90mNo qualifying tips found. Scan more frequently or wait for better data.\x1b[0m\n');
     return;
   }
 
@@ -18,11 +18,11 @@ function printTips(tips: Tip[]) {
 
   for (const tip of tips) {
     const kickoff = new Date(tip.startTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-    console.log(`\n   \x1b[36m${tip.homeTeam} vs ${tip.awayTeam}\x1b[0m`);
+    console.log(`\n   \x1b[36m${tip.homeTeam} vs ${tip.awayTeam}\x1b[0m \x1b[90m(${tip.sport})\x1b[0m`);
     console.log(`   \x1b[90m${tip.league} | KO: ${kickoff} | ${tip.hoursToKickoff}h away\x1b[0m`);
-    console.log(`   \x1b[32m▶ ${tip.targetSelection}\x1b[0m @ \x1b[1m${tip.localOdds}\x1b[0m (${tip.localBookmaker})`);
+    console.log(`   \x1b[32m▶ ${tip.targetSelection}\x1b[0m (${tip.targetMarket}) @ \x1b[1m${tip.localOdds}\x1b[0m (${tip.localBookmaker})`);
     console.log(`   Confidence : \x1b[32m${tip.confidence}%\x1b[0m`);
-    console.log(`   Pinnacle   : ${tip.pinnacleLineDirection} ${tip.pinnacleLineValue} dropped ${tip.oddsDropPct}% (${tip.previousOdds} → ${tip.currentOdds})`);
+    console.log(`   Pinnacle   : ${tip.pinnacleAvailable ? (tip.pinnacleAgrees ? 'agrees ✓' : 'diverges ⚠') : 'no line available'}`);
     console.log(`   Signal     : \x1b[33m${tip.signal}\x1b[0m`);
     console.log('   ' + '─'.repeat(60));
   }

@@ -171,10 +171,14 @@ export async function notifyTips(tips: Tip[]): Promise<void> {
 
   for (const { tip, stake, shortId } of newTips) {
     const kickoff = new Date(tip.startTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-    lines.push(`📌 <b>${tip.homeTeam} vs ${tip.awayTeam}</b>`);
+    lines.push(`📌 <b>${tip.homeTeam} vs ${tip.awayTeam}</b> <i>(${tip.sport})</i>`);
     lines.push(`${tip.league} | KO: ${kickoff} | ${tip.hoursToKickoff}h away`);
-    lines.push(`▶ <b>${tip.targetSelection}</b> @ ${tip.localOdds} (${tip.localBookmaker})`);
-    lines.push(`Confidence: ${tip.confidence}% | Drop: ${tip.oddsDropPct}%`);
+    lines.push(`▶ <b>${tip.targetSelection}</b> (${tip.targetMarket}) @ ${tip.localOdds} (${tip.localBookmaker})`);
+    // FIXED: tip.oddsDropPct no longer exists — tips are now pure
+    // stats-driven predictions, not Pinnacle-line-movement signals.
+    // Showing Pinnacle agreement status instead, which is the new
+    // design's equivalent context (optional confirmation, not a gate).
+    lines.push(`Confidence: ${tip.confidence}% | Pinnacle: ${tip.pinnacleAvailable ? (tip.pinnacleAgrees ? 'agrees ✓' : 'diverges ⚠') : 'no line'}`);
     lines.push(`Signal: ${tip.signal}`);
     lines.push(`Stake: ₦${stake.toLocaleString()} | Bet ID: <code>${shortId}</code>`);
     lines.push('');

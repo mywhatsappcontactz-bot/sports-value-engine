@@ -1,6 +1,6 @@
 import { Stats, Odds, H2HRecord, FormRecord } from '../database/schema';
 
-// ─── TYPES ───────────────────────────────────────────────
+// ─── TYPES ─────────────────────────────────────────────────
 
 export interface MarketProbability {
   market: string;
@@ -21,7 +21,12 @@ export interface ModelInput {
   odds: Odds[];
 }
 
-// ─── POISSON ─────────────────────────────────────────────
+interface FootballLambdas {
+  lambdaHome: number;
+  lambdaAway: number;
+}
+
+// ─── POISSON ─────────────────────────────────────────────────
 
 function poissonPmf(lambda: number, k: number): number {
   if (lambda <= 0) return k === 0 ? 1 : 0;
@@ -47,7 +52,63 @@ function poissonMatchProbs(
   return { home, draw, away };
 }
 
-// ─── FORM HELPERS ────────────────────────────────────────
+// Probability that total goals (home + away) exceed `line`, given lambdas.
+function totalOverProbability(lambdaHome: number, lambdaAway: number, line: number, maxGoals = 8): number {
+  let overProb = 0;
+  for (let i = 0; i <= maxGoals; i++) {
+    for (let j = 0; j <= maxGoals; j++) {
+      if (i + j > line) overProb += poissonPmf(lambdaHome, i) * poissonPmf(lambdaAway, j);
+    }
+  }
+  return overProb;
+}
+
+// Full goal-margin distribution (home goals - away goals) -> probability
+function marginDistribution(lambdaHome: number, lambdaAway: number, maxGoals = 8): Map<number, number> {
+  const dist = new Map<number, number>();
+  for (let i = 0; i <= maxGoals; i++) {
+    for (let j = 0; j <= maxGoals; j++) {
+      const p = poissonPmf(lambdaHome, i) * poissonPmf(lambdaAway, j);
+      const margin = i - j;
+      dist.set(margin, (dist.get(margin) || 0) + p);
+    }
+  }
+  return dist;
+}
+
+// Probability the HOME side covers a given Asian handicap line.
+// line convention: negative = home is favored (must win by more than |line|).
+//   e.g. line = -1.5 means home must win by 2+ goals to cover.
+//   line = +1.5 means home covers unless they lose by 2+ goals.
+// Quarter lines (e.g. -0.25, -0.75) are handled as an average of the two
+// adjacent half-lines — a standard approximation for split-stake quarter lines.
+// NOTE: this is an approximation, not a full split-stake EV model. Good enough
+// for edge-detection purposes; flagged here for future refinement if needed.
+function handicapCoverProbability(dist: Map<number, number>, line: number): number {
+  const isQuarterLine = Math.abs((line * 4) % 1) < 1e-9 && Math.abs((line * 2) % 1) > 1e-9;
+
+  if (isQuarterLine) {
+    const lower = Math.floor(line * 2) / 2;
+    const upper = Math.ceil(line * 2) / 2;
+    return (
+      handicapCoverProbability(dist, lower) * 0.5 +
+      handicapCoverProbability(dist, upper) * 0.5
+    );
+  }
+
+  let cover = 0;
+  let push = 0;
+  for (const [margin, p] of dist) {
+    const adjusted = margin + line;
+    if (adjusted > 0) cover += p;
+    else if (adjusted === 0) push += p;
+  }
+  const lose = 1 - cover - push;
+  const settled = cover + lose;
+  return settled > 0 ? cover / settled : cover; // renormalized excluding pushes
+}
+
+// ─── FORM HELPERS ─────────────────────────────────────────────────
 
 function formWinRate(form: FormRecord[]): number {
   if (!form.length) return 0.5;
@@ -83,7 +144,7 @@ function weightedGoalsAvg(form: FormRecord[], key: 'goalsFor' | 'goalsAgainst'):
   return valueSum / weightSum;
 }
 
-// ─── ELO ─────────────────────────────────────────────────
+// ─── ELO ─────────────────────────────────────────────────────
 
 function eloStrengthRatio(
   homeWinRate: number,
@@ -96,7 +157,7 @@ function eloStrengthRatio(
   return homeStrength / total;
 }
 
-// ─── NORMALIZATION ───────────────────────────────────────
+// ─── NORMALIZATION ─────────────────────────────────────────────────
 
 function normalize(probs: Record<string, number>): Record<string, number> {
   const total = Object.values(probs).reduce((s, v) => s + v, 0);
@@ -106,7 +167,7 @@ function normalize(probs: Record<string, number>): Record<string, number> {
   return out;
 }
 
-// ─── NORMAL CDF ──────────────────────────────────────────
+// ─── NORMAL CDF ─────────────────────────────────────────────────
 
 function normalCdf(z: number): number {
   const t = 1 / (1 + 0.2316419 * Math.abs(z));
@@ -115,7 +176,7 @@ function normalCdf(z: number): number {
   return z > 0 ? 1 - p : p;
 }
 
-// ─── TOTAL LINE EXTRACTOR ────────────────────────────────
+// ─── TOTAL LINE EXTRACTOR ─────────────────────────────────────────────────
 
 function extractTotalLine(odds: Odds[], market: string, defaultLine: number): number {
   const oddsForMarket = odds.filter(o => o.market === market);
@@ -127,12 +188,9 @@ function extractTotalLine(odds: Odds[], market: string, defaultLine: number): nu
   return defaultLine;
 }
 
-// ─── SPORT MODELS ────────────────────────────────────────
+// ─── FOOTBALL LAMBDA COMPUTATION (extracted so it's reusable) ──────────
 
-function modelFootball(input: ModelInput): MarketProbability[] {
-  const { stats, odds } = input;
-  const results: MarketProbability[] = [];
-
+function computeFootballLambdas(stats: Stats): FootballLambdas {
   const formLambdaHome = weightedGoalsAvg(stats.homeForm.filter(f => f.venue === 'home'), 'goalsFor');
   const formLambdaAway = weightedGoalsAvg(stats.awayForm.filter(f => f.venue === 'away'), 'goalsFor');
 
@@ -174,7 +232,18 @@ function modelFootball(input: ModelInput): MarketProbability[] {
   lambdaHome = Math.min(lambdaHome, 3.0);
   lambdaAway = Math.min(lambdaAway, 3.0);
 
-  // ── 1X2 ───────────────────────────────────────────────
+  return { lambdaHome, lambdaAway };
+}
+
+// ─── SPORT MODELS ─────────────────────────────────────────────────
+
+function modelFootball(input: ModelInput): MarketProbability[] {
+  const { stats } = input;
+  const results: MarketProbability[] = [];
+
+  const { lambdaHome, lambdaAway } = computeFootballLambdas(stats);
+
+  // ── 1X2 ────────────────────────────────────────────────
   const raw1x2 = poissonMatchProbs(lambdaHome, lambdaAway);
 
   const homeWR = formWinRate(stats.homeForm);
@@ -194,23 +263,38 @@ function modelFootball(input: ModelInput): MarketProbability[] {
     { market: 'moneyline', selection: 'Away', trueProbability: blended.away, method: 'poisson+elo' },
   );
 
+  // ── DOUBLE CHANCE (derived directly from blended 1X2 — no new modeling) ──
+  results.push(
+    { market: 'double_chance', selection: '1X', trueProbability: blended.home + blended.draw, method: 'derived-1x2' },
+    { market: 'double_chance', selection: 'X2', trueProbability: blended.draw + blended.away, method: 'derived-1x2' },
+    { market: 'double_chance', selection: '12', trueProbability: blended.home + blended.away, method: 'derived-1x2' },
+  );
+
   // ── TOTALS: 1.5, 2.5, 3.5 (matches SportyBet's available lines) ──
   const TARGET_LINES = [1.5, 2.5, 3.5];
 
   for (const line of TARGET_LINES) {
-    let overProb = 0;
-    for (let i = 0; i <= 8; i++) {
-      for (let j = 0; j <= 8; j++) {
-        if (i + j > line) overProb += poissonPmf(lambdaHome, i) * poissonPmf(lambdaAway, j);
-      }
-    }
+    const overProb = totalOverProbability(lambdaHome, lambdaAway, line);
     results.push(
       { market: 'totals', selection: `Over ${line}`, trueProbability: overProb, method: 'poisson' },
       { market: 'totals', selection: `Under ${line}`, trueProbability: 1 - overProb, method: 'poisson' },
     );
   }
 
-  // ── BTTS ──────────────────────────────────────────────
+  // ── ASIAN HANDICAP: standard set of lines a sharp book typically posts ──
+  // Home-perspective lines. Away side is just 1 - homeCoverProb (excl. push).
+  const HANDICAP_LINES = [-1.5, -1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1, 1.5];
+  const dist = marginDistribution(lambdaHome, lambdaAway);
+
+  for (const line of HANDICAP_LINES) {
+    const homeCoverProb = handicapCoverProbability(dist, line);
+    results.push(
+      { market: 'handicap', selection: `Home ${line >= 0 ? '+' : ''}${line}`, trueProbability: homeCoverProb, method: 'poisson-margin' },
+      { market: 'handicap', selection: `Away ${-line >= 0 ? '+' : ''}${-line}`, trueProbability: 1 - homeCoverProb, method: 'poisson-margin' },
+    );
+  }
+
+  // ── BTTS ────────────────────────────────────────────────
   const pHomeScores = 1 - poissonPmf(lambdaHome, 0);
   const pAwayScores = 1 - poissonPmf(lambdaAway, 0);
   const bttsYes = pHomeScores * pAwayScores;
@@ -257,10 +341,10 @@ function modelTennis(input: ModelInput): MarketProbability[] {
   }
 
   homeWinProb = Math.max(0.05, Math.min(0.95, homeWinProb));
-results.push(
-  { market: 'moneyline', selection: input.match.homeTeam, trueProbability: homeWinProb, method: 'elo+surface' },
-  { market: 'moneyline', selection: input.match.awayTeam, trueProbability: 1 - homeWinProb, method: 'elo+surface' },
-);
+  results.push(
+    { market: 'moneyline', selection: input.match.homeTeam, trueProbability: homeWinProb, method: 'elo+surface' },
+    { market: 'moneyline', selection: input.match.awayTeam, trueProbability: 1 - homeWinProb, method: 'elo+surface' },
+  );
   return results;
 }
 
@@ -321,6 +405,7 @@ function modelBasketball(input: ModelInput): MarketProbability[] {
 
   return results;
 }
+
 function modelHockey(input: ModelInput): MarketProbability[] {
   const { stats, odds } = input;
   const results: MarketProbability[] = [];
@@ -384,12 +469,7 @@ function modelHockey(input: ModelInput): MarketProbability[] {
     { market: 'puck_line', selection: 'Away +1.5', trueProbability: 1 - puckLineHome, method: 'poisson' },
   );
 
-  let over55 = 0;
-  for (let i = 0; i <= 8; i++) {
-    for (let j = 0; j <= 8; j++) {
-      if (i + j > 5.5) over55 += poissonPmf(lambdaHome, i) * poissonPmf(lambdaAway, j);
-    }
-  }
+  const over55 = totalOverProbability(lambdaHome, lambdaAway, 5.5);
   results.push(
     { market: 'totals', selection: 'Over 5.5', trueProbability: over55, method: 'poisson' },
     { market: 'totals', selection: 'Under 5.5', trueProbability: 1 - over55, method: 'poisson' },
@@ -398,7 +478,7 @@ function modelHockey(input: ModelInput): MarketProbability[] {
   return results;
 }
 
-// ─── PUBLIC API ───────────────────────────────────────────
+// ─── PUBLIC API ─────────────────────────────────────────────────
 
 export function getProbabilities(input: ModelInput): MarketProbability[] {
   switch (input.match.sport) {
@@ -409,4 +489,41 @@ export function getProbabilities(input: ModelInput): MarketProbability[] {
     default:
       throw new Error(`[ProbabilityModel] Unknown sport: ${input.match.sport}`);
   }
+}
+
+// Ask the model for the true probability of "Over `line`" at an ARBITRARY
+// line — not just the fixed TARGET_LINES. This is what powers the
+// Pinnacle quarter-line inference (e.g. Pinnacle posts 2.25, we need to
+// know our model's own read on that exact line to validate the signal
+// before stepping down to a bet on Over 1.5).
+// Returns null for sports/markets this isn't defined for yet.
+export function getTotalProbabilityAtLine(input: ModelInput, line: number): number | null {
+  if (input.match.sport === 'football') {
+    const { lambdaHome, lambdaAway } = computeFootballLambdas(input.stats);
+    return totalOverProbability(lambdaHome, lambdaAway, line);
+  }
+  if (input.match.sport === 'hockey') {
+    const { stats } = input;
+    let lambdaHome = weightedGoalsAvg(stats.homeForm.filter(f => f.venue === 'home'), 'goalsFor');
+    let lambdaAway = weightedGoalsAvg(stats.awayForm.filter(f => f.venue === 'away'), 'goalsFor');
+    const h2hHomeGoals = stats.h2h.reduce((s, r) => s + r.homeScore, 0) / (stats.h2h.length || 1);
+    const h2hAwayGoals = stats.h2h.reduce((s, r) => s + r.awayScore, 0) / (stats.h2h.length || 1);
+    lambdaHome = lambdaHome * 0.7 + h2hHomeGoals * 0.3;
+    lambdaAway = lambdaAway * 0.7 + h2hAwayGoals * 0.3;
+    lambdaHome *= 1.06;
+    lambdaHome = Math.min(lambdaHome, 4.5);
+    lambdaAway = Math.min(lambdaAway, 4.5);
+    return totalOverProbability(lambdaHome, lambdaAway, line);
+  }
+  return null;
+}
+
+// Ask the model for the home-side cover probability at an ARBITRARY
+// handicap line. Used the same way as getTotalProbabilityAtLine, but
+// for the Asian Handicap market.
+export function getHandicapProbabilityAtLine(input: ModelInput, homeLine: number): number | null {
+  if (input.match.sport !== 'football') return null;
+  const { lambdaHome, lambdaAway } = computeFootballLambdas(input.stats);
+  const dist = marginDistribution(lambdaHome, lambdaAway);
+  return handicapCoverProbability(dist, homeLine);
 }
