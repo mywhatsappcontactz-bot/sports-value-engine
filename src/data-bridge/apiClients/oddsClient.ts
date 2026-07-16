@@ -68,10 +68,10 @@ const SPORT_KEYS: Record<string, string[]> = {
 // one market doesn't take down the others, and easier to debug per-market
 // failures in the logs.
 const SPORT_MARKETS: Record<string, string[]> = {
-  football:   ['h2h', 'totals', 'spreads'],
-  basketball: ['h2h', 'totals'],
-  tennis:     ['h2h'],
-  hockey:     ['h2h', 'totals'],
+  football:   ['totals'],           // Over/Under only, per user preference
+  basketball: ['h2h', 'totals'],    // moneyline + Over/Under
+  tennis:     ['h2h'],              // match result only
+  hockey:     ['h2h'],              // match result only
 };
 
 const SPORT_REGIONS: Record<string, string> = {
@@ -131,6 +131,35 @@ function writeCache(sport: string, data: { matches: RawMatch[]; oddsMap: Map<str
     fs.writeFileSync(cacheFilePath(sport), JSON.stringify(entry), 'utf-8');
   } catch (err: any) {
     logger.warn(`[OddsClient] Failed to write cache for ${sport}`, { error: err.message });
+  }
+}
+
+// How far ahead to look for fixtures before deciding a league is worth
+// spending credits on. The /events endpoint below is FREE (doesn't
+// count against quota) — using it as a pre-check avoids paying for
+// /odds calls on leagues that are currently off-season and would
+// return 0 matches anyway (confirmed from real scan logs: more than
+// half of configured football leagues were burning credits for
+// nothing every single scan).
+const FIXTURE_WINDOW_HOURS = 24;
+
+async function hasUpcomingFixtures(sportKey: string, windowHours: number): Promise<boolean> {
+  try {
+    const events = await apiFetch<any[]>(`/sports/${sportKey}/events`, {});
+    if (!events || !events.length) return false;
+
+    const now = Date.now();
+    const cutoff = now + windowHours * 60 * 60 * 1000;
+
+    return events.some(e => {
+      const t = new Date(e.commence_time).getTime();
+      return t <= cutoff && t >= now - 60 * 60 * 1000; // small buffer for in-play events
+    });
+  } catch (err: any) {
+    // Fail open — if the free check itself errors, don't block the
+    // real fetch attempt over it. Worst case: one wasted paid call.
+    logger.warn(`[OddsClient] Free fixture check failed for ${sportKey}`, { error: err.message });
+    return true;
   }
 }
 
@@ -359,6 +388,17 @@ export class OddsClient {
     // available for a league, 'h2h' and 'totals' still succeed
     // independently instead of the whole request failing together.
     for (const sportKey of sportKeys) {
+      // FREE pre-check — skip this league entirely (no credits spent)
+      // if it has no fixtures in the next FIXTURE_WINDOW_HOURS. This
+      // is what was silently burning credits before: off-season
+      // leagues returning 0 matches still cost the same as an active
+      // one, every single scan.
+      const hasFixtures = await hasUpcomingFixtures(sportKey, FIXTURE_WINDOW_HOURS);
+      if (!hasFixtures) {
+        logger.info(`[OddsClient] Skipping ${sportKey} — no fixtures within ${FIXTURE_WINDOW_HOURS}h (free check, 0 credits used)`);
+        continue;
+      }
+
       for (const market of markets) {
         try {
           const events = await apiFetch<any[]>(`/sports/${sportKey}/odds`, {

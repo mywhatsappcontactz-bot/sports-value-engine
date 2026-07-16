@@ -191,8 +191,34 @@ function extractTotalLine(odds: Odds[], market: string, defaultLine: number): nu
 // ─── FOOTBALL LAMBDA COMPUTATION (extracted so it's reusable) ──────────
 
 function computeFootballLambdas(stats: Stats): FootballLambdas {
-  const formLambdaHome = weightedGoalsAvg(stats.homeForm.filter(f => f.venue === 'home'), 'goalsFor');
-  const formLambdaAway = weightedGoalsAvg(stats.awayForm.filter(f => f.venue === 'away'), 'goalsFor');
+  // BUG FIX: previously each team's expected goals came ONLY from their
+  // own scoring history — the opponent's defensive record never
+  // factored in at all. A team facing a leaky defense would get the
+  // same expected-goals estimate as if facing a stingy one. This
+  // directly caused a high-confidence Under 3.5 miss (Galway 3-2
+  // Sligo) where BOTH teams had weak defenses (conceding ~2.0 and
+  // ~2.6 goals/game respectively) but the model never saw that,
+  // since it only looked at each side's own goalsFor.
+  //
+  // Fix: blend each team's own attacking average with the OPPONENT's
+  // defensive weakness (their average goals conceded). This is the
+  // standard technique most football prediction models use — attack
+  // strength alone is meaningless without accounting for what kind of
+  // defense it's facing.
+
+  const homeVenueForm = stats.homeForm.filter(f => f.venue === 'home');
+  const awayVenueForm = stats.awayForm.filter(f => f.venue === 'away');
+
+  const homeAttack = weightedGoalsAvg(homeVenueForm, 'goalsFor');
+  const awayAttack = weightedGoalsAvg(awayVenueForm, 'goalsFor');
+  const homeDefenseWeakness = weightedGoalsAvg(homeVenueForm, 'goalsAgainst');
+  const awayDefenseWeakness = weightedGoalsAvg(awayVenueForm, 'goalsAgainst');
+
+  // Home's expected goals = blend of Home's own attack AND Away's
+  // defensive weakness (a leaky away defense should push Home's
+  // expected goals UP, not just Home's own scoring history).
+  const formLambdaHome = (homeAttack + awayDefenseWeakness) / 2;
+  const formLambdaAway = (awayAttack + homeDefenseWeakness) / 2;
 
   const leagueLambdaHome = (stats.additionalContext?.homeGoalsAvg as number | undefined) ?? 1.35;
   const leagueLambdaAway = (stats.additionalContext?.awayGoalsAvg as number | undefined) ?? 1.10;

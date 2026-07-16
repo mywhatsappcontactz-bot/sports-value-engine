@@ -11,12 +11,34 @@ const db = getDb();
 
 // ─── TELEGRAM ────────────────────────────────────────────────────────────────
 
+const TELEGRAM_MAX_LENGTH = 4000; // Telegram's real limit is 4096; leave margin
+
 async function sendMessage(text: string): Promise<void> {
   if (!BOT_TOKEN || !CHAT_ID) {
     console.warn('[Telegram] Missing BOT_TOKEN or CHAT_ID — skipping notification');
     return;
   }
 
+  // Telegram rejects any single message over 4096 chars outright — this
+  // was the actual cause of tips never arriving (48 tips in one message
+  // easily exceeds it). Split into multiple messages instead of failing
+  // silently on the whole batch.
+  const chunks: string[] = [];
+  let remaining = text;
+  while (remaining.length > TELEGRAM_MAX_LENGTH) {
+    let splitAt = remaining.lastIndexOf('\n\n', TELEGRAM_MAX_LENGTH);
+    if (splitAt <= 0) splitAt = TELEGRAM_MAX_LENGTH;
+    chunks.push(remaining.slice(0, splitAt));
+    remaining = remaining.slice(splitAt);
+  }
+  chunks.push(remaining);
+
+  for (const chunk of chunks) {
+    await sendSingleMessage(chunk);
+  }
+}
+
+async function sendSingleMessage(text: string): Promise<void> {
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
   const res = await fetch(url, {
     method: 'POST',
@@ -137,9 +159,24 @@ export async function notifyValueBets(result: EngineResult, sport: string): Prom
 export async function notifyTips(tips: Tip[]): Promise<void> {
   if (!tips.length) return;
 
+  // Cap to top picks by confidence — sending all 40+ tips is both
+  // overwhelming to read and, before the chunking fix above, was the
+  // direct cause of Telegram silently rejecting the message entirely.
+  const MAX_TIPS_TO_NOTIFY = 10;
+  const topTips = [...tips]
+    .sort((a, b) => b.confidence - a.confidence)
+    .slice(0, MAX_TIPS_TO_NOTIFY);
+
   const newTips = [];
 
-  for (const tip of tips) {
+  for (const tip of topTips) {
+    if (tip.localOdds === null || tip.localBookmaker === null) {
+      // No live price available — still worth showing as a prediction,
+      // but nothing to stake or track in bet_results.
+      newTips.push({ tip, stake: null, shortId: null });
+      continue;
+    }
+
     // Skip duplicates — same match + selection already pending
     if (isDuplicateBet('tip', tip.matchId, tip.targetSelection)) continue;
 
@@ -173,14 +210,15 @@ export async function notifyTips(tips: Tip[]): Promise<void> {
     const kickoff = new Date(tip.startTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
     lines.push(`📌 <b>${tip.homeTeam} vs ${tip.awayTeam}</b> <i>(${tip.sport})</i>`);
     lines.push(`${tip.league} | KO: ${kickoff} | ${tip.hoursToKickoff}h away`);
-    lines.push(`▶ <b>${tip.targetSelection}</b> (${tip.targetMarket}) @ ${tip.localOdds} (${tip.localBookmaker})`);
-    // FIXED: tip.oddsDropPct no longer exists — tips are now pure
-    // stats-driven predictions, not Pinnacle-line-movement signals.
-    // Showing Pinnacle agreement status instead, which is the new
-    // design's equivalent context (optional confirmation, not a gate).
+    const priceText = tip.localOdds !== null
+      ? `@ ${tip.localOdds} (${tip.localBookmaker})`
+      : `(no live price currently offered)`;
+    lines.push(`▶ <b>${tip.targetSelection}</b> (${tip.targetMarket}) ${priceText}`);
     lines.push(`Confidence: ${tip.confidence}% | Pinnacle: ${tip.pinnacleAvailable ? (tip.pinnacleAgrees ? 'agrees ✓' : 'diverges ⚠') : 'no line'}`);
     lines.push(`Signal: ${tip.signal}`);
-    lines.push(`Stake: ₦${stake.toLocaleString()} | Bet ID: <code>${shortId}</code>`);
+    if (stake !== null && shortId !== null) {
+      lines.push(`Stake: ₦${stake.toLocaleString()} | Bet ID: <code>${shortId}</code>`);
+    }
     lines.push('');
   }
 

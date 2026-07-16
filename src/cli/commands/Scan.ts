@@ -95,7 +95,10 @@ function printTips(tips: Tip[]) {
     const kickoff = new Date(tip.startTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
     console.log(`\n   \x1b[36m${tip.homeTeam} vs ${tip.awayTeam}\x1b[0m`);
     console.log(`   \x1b[90m${tip.league} | KO: ${kickoff} | ${tip.hoursToKickoff}h away\x1b[0m`);
-    console.log(`   \x1b[32m▶ ${tip.targetSelection}\x1b[0m @ \x1b[1m${tip.localOdds}\x1b[0m (${tip.localBookmaker})`);
+    const priceText = tip.localOdds !== null
+      ? `@ \x1b[1m${tip.localOdds}\x1b[0m (${tip.localBookmaker})`
+      : `\x1b[90m(no live price — fair odds ~${tip.impliedFairOdds})\x1b[0m`;
+    console.log(`   \x1b[32m▶ ${tip.targetSelection}\x1b[0m ${priceText}`);
     console.log(`   Confidence : \x1b[32m${tip.confidence}%\x1b[0m`);
     console.log(`   Signal     : \x1b[33m${tip.signal}\x1b[0m`);
     console.log('   ' + '─'.repeat(60));
