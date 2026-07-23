@@ -162,10 +162,10 @@ export async function notifyTips(tips: Tip[]): Promise<void> {
   // Cap to top picks by confidence — sending all 40+ tips is both
   // overwhelming to read and, before the chunking fix above, was the
   // direct cause of Telegram silently rejecting the message entirely.
-  const MAX_TIPS_TO_NOTIFY = 10;
+  
   const topTips = [...tips]
     .sort((a, b) => b.confidence - a.confidence)
-    .slice(0, MAX_TIPS_TO_NOTIFY);
+    
 
   const newTips = [];
 

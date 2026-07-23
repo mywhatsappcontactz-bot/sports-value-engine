@@ -26,6 +26,19 @@ interface FootballLambdas {
   lambdaAway: number;
 }
 
+// ─── CONFIG ─────────────────────────────────────────────────
+
+// Toggle: when true, football goals totals (1.5/2.5/3.5) use the
+// Dixon-Coles corrected calculation instead of plain independent Poisson.
+// Kept OFF by default — flip once Brier scores over real settled tips
+// confirm it improves accuracy over the existing method. Does not affect
+// corners, moneyline, handicap, BTTS, or any other sport.
+const USE_DIXON_COLES_FOR_TOTALS = false;
+
+// rho is a fixed literature value (typical range -0.05 to -0.15), not
+// fitted per-league via MLE.
+const DIXON_COLES_RHO = -0.1;
+
 // ─── POISSON ─────────────────────────────────────────────────
 
 function poissonPmf(lambda: number, k: number): number {
@@ -61,6 +74,45 @@ function totalOverProbability(lambdaHome: number, lambdaAway: number, line: numb
     }
   }
   return overProb;
+}
+
+// ─── DIXON-COLES CORRECTION (isolated, toggleable) ─────────────────────────
+//
+// Applies the Dixon-Coles tau adjustment to fix known Poisson bias on
+// low-scoring outcomes (0-0, 1-0, 0-1, 1-1). Kept SEPARATE from
+// totalOverProbability so the original keeps running unchanged unless
+// USE_DIXON_COLES_FOR_TOTALS is flipped on.
+
+function dixonColesTau(x: number, y: number, lambdaHome: number, lambdaAway: number, rho: number): number {
+  if (x === 0 && y === 0) return 1 - lambdaHome * lambdaAway * rho;
+  if (x === 1 && y === 0) return 1 + lambdaAway * rho;
+  if (x === 0 && y === 1) return 1 + lambdaHome * rho;
+  if (x === 1 && y === 1) return 1 - rho;
+  return 1;
+}
+
+function totalOverProbabilityDixonColes(
+  lambdaHome: number,
+  lambdaAway: number,
+  line: number,
+  maxGoals = 8,
+  rho: number = DIXON_COLES_RHO,
+): number {
+  let overProb = 0;
+  let total = 0;
+
+  for (let i = 0; i <= maxGoals; i++) {
+    for (let j = 0; j <= maxGoals; j++) {
+      const base = poissonPmf(lambdaHome, i) * poissonPmf(lambdaAway, j);
+      const tau = dixonColesTau(i, j, lambdaHome, lambdaAway, rho);
+      const p = base * tau;
+      total += p;
+      if (i + j > line) overProb += p;
+    }
+  }
+
+  // renormalize — tau shifts mass slightly off 1.0
+  return total > 0 ? overProb / total : overProb;
 }
 
 // Full goal-margin distribution (home goals - away goals) -> probability
@@ -191,21 +243,6 @@ function extractTotalLine(odds: Odds[], market: string, defaultLine: number): nu
 // ─── FOOTBALL LAMBDA COMPUTATION (extracted so it's reusable) ──────────
 
 function computeFootballLambdas(stats: Stats): FootballLambdas {
-  // BUG FIX: previously each team's expected goals came ONLY from their
-  // own scoring history — the opponent's defensive record never
-  // factored in at all. A team facing a leaky defense would get the
-  // same expected-goals estimate as if facing a stingy one. This
-  // directly caused a high-confidence Under 3.5 miss (Galway 3-2
-  // Sligo) where BOTH teams had weak defenses (conceding ~2.0 and
-  // ~2.6 goals/game respectively) but the model never saw that,
-  // since it only looked at each side's own goalsFor.
-  //
-  // Fix: blend each team's own attacking average with the OPPONENT's
-  // defensive weakness (their average goals conceded). This is the
-  // standard technique most football prediction models use — attack
-  // strength alone is meaningless without accounting for what kind of
-  // defense it's facing.
-
   const homeVenueForm = stats.homeForm.filter(f => f.venue === 'home');
   const awayVenueForm = stats.awayForm.filter(f => f.venue === 'away');
 
@@ -214,9 +251,6 @@ function computeFootballLambdas(stats: Stats): FootballLambdas {
   const homeDefenseWeakness = weightedGoalsAvg(homeVenueForm, 'goalsAgainst');
   const awayDefenseWeakness = weightedGoalsAvg(awayVenueForm, 'goalsAgainst');
 
-  // Home's expected goals = blend of Home's own attack AND Away's
-  // defensive weakness (a leaky away defense should push Home's
-  // expected goals UP, not just Home's own scoring history).
   const formLambdaHome = (homeAttack + awayDefenseWeakness) / 2;
   const formLambdaAway = (awayAttack + homeDefenseWeakness) / 2;
 
@@ -261,6 +295,44 @@ function computeFootballLambdas(stats: Stats): FootballLambdas {
   return { lambdaHome, lambdaAway };
 }
 
+// ─── CORNERS (single-floor totals, tip-scanner only) ───────────────────────
+//
+// Unlike goals, corners lambdas are NOT computed here — cornersAggregator.ts
+// already writes the Dixon-Coles-blended expected corners (per side) directly
+// to stats.homeCornersAvg/awayCornersAvg. This function just runs those two
+// numbers through the same Poisson machinery already used for goals totals,
+// then picks the HIGHEST line that still clears CORNERS_MIN_CONFIDENCE.
+//
+// NOTE: corners deliberately does NOT use the Dixon-Coles tau correction —
+// rho is calibrated from goals data specifically; applying it to corners
+// would be an unvalidated assumption. Plain Poisson stays here regardless
+// of USE_DIXON_COLES_FOR_TOTALS.
+const CORNERS_LINES = [7.5, 8.5, 9.5, 10.5, 11.5, 12.5];
+const CORNERS_MIN_CONFIDENCE = 0.80;
+
+function modelFootballCorners(stats: Stats): MarketProbability | null {
+  const lambdaHome = stats.homeCornersAvg;
+  const lambdaAway = stats.awayCornersAvg;
+
+  if (lambdaHome == null || lambdaAway == null) return null;
+
+  const overProbs = CORNERS_LINES.map((line) => ({
+    line,
+    prob: totalOverProbability(lambdaHome, lambdaAway, line, 20),
+  }));
+
+  const clearingFloor = overProbs.filter((o) => o.prob >= CORNERS_MIN_CONFIDENCE);
+  if (!clearingFloor.length) return null;
+
+  const best = clearingFloor.reduce((a, b) => (b.line > a.line ? b : a));
+  return {
+    market: 'corners_totals',
+    selection: `Over ${best.line}`,
+    trueProbability: best.prob,
+    method: 'poisson-corners',
+  };
+}
+
 // ─── SPORT MODELS ─────────────────────────────────────────────────
 
 function modelFootball(input: ModelInput): MarketProbability[] {
@@ -300,15 +372,17 @@ function modelFootball(input: ModelInput): MarketProbability[] {
   const TARGET_LINES = [1.5, 2.5, 3.5];
 
   for (const line of TARGET_LINES) {
-    const overProb = totalOverProbability(lambdaHome, lambdaAway, line);
+    const overProb = USE_DIXON_COLES_FOR_TOTALS
+      ? totalOverProbabilityDixonColes(lambdaHome, lambdaAway, line)
+      : totalOverProbability(lambdaHome, lambdaAway, line);
+    const method = USE_DIXON_COLES_FOR_TOTALS ? 'dixon-coles' : 'poisson';
     results.push(
-      { market: 'totals', selection: `Over ${line}`, trueProbability: overProb, method: 'poisson' },
-      { market: 'totals', selection: `Under ${line}`, trueProbability: 1 - overProb, method: 'poisson' },
+      { market: 'totals', selection: `Over ${line}`, trueProbability: overProb, method },
+      { market: 'totals', selection: `Under ${line}`, trueProbability: 1 - overProb, method },
     );
   }
 
   // ── ASIAN HANDICAP: standard set of lines a sharp book typically posts ──
-  // Home-perspective lines. Away side is just 1 - homeCoverProb (excl. push).
   const HANDICAP_LINES = [-1.5, -1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1, 1.5];
   const dist = marginDistribution(lambdaHome, lambdaAway);
 
@@ -328,6 +402,10 @@ function modelFootball(input: ModelInput): MarketProbability[] {
     { market: 'btts', selection: 'Yes', trueProbability: bttsYes, method: 'poisson' },
     { market: 'btts', selection: 'No', trueProbability: 1 - bttsYes, method: 'poisson' },
   );
+
+  // ── CORNERS: sweet-spot single-line tip (see modelFootballCorners) ──
+  const cornersTip = modelFootballCorners(stats);
+  if (cornersTip) results.push(cornersTip);
 
   return results;
 }
@@ -399,10 +477,6 @@ function modelBasketball(input: ModelInput): MarketProbability[] {
     { market: 'moneyline', selection: 'Away', trueProbability: 1 - homeWinProb, method: 'elo+fatigue' },
   );
 
-  // ── TOTALS: uses scraped PPG (offense/defense) instead of form arrays ──
-  // Basketball form data isn't populated (homeForm/awayForm stay empty —
-  // that's a football-shaped concept). Real signal comes from
-  // additionalContext, set by basketballReferenceScraper via realFetcher.
   const homeOffAvg = (stats.additionalContext?.homePpgFor as number | undefined) ?? 80;
   const awayOffAvg = (stats.additionalContext?.awayPpgFor as number | undefined) ?? 80;
   const homeDefAvg = (stats.additionalContext?.homePpgAgainst as number | undefined) ?? 80;
@@ -419,8 +493,8 @@ function modelBasketball(input: ModelInput): MarketProbability[] {
   }
   const adjustedTotal = expectedTotal * foulAdj;
 
-  const totalLine = extractTotalLine(odds, 'totals', 165.5); // WNBA averages ~165, not NBA's 215.5
-  const sd = 10; // WNBA scoring variance is tighter than NBA
+  const totalLine = extractTotalLine(odds, 'totals', 165.5);
+  const sd = 10;
   const z = (totalLine - adjustedTotal) / sd;
   const overProb = 1 - normalCdf(z);
 
@@ -518,15 +592,13 @@ export function getProbabilities(input: ModelInput): MarketProbability[] {
 }
 
 // Ask the model for the true probability of "Over `line`" at an ARBITRARY
-// line — not just the fixed TARGET_LINES. This is what powers the
-// Pinnacle quarter-line inference (e.g. Pinnacle posts 2.25, we need to
-// know our model's own read on that exact line to validate the signal
-// before stepping down to a bet on Over 1.5).
-// Returns null for sports/markets this isn't defined for yet.
+// line — not just the fixed TARGET_LINES.
 export function getTotalProbabilityAtLine(input: ModelInput, line: number): number | null {
   if (input.match.sport === 'football') {
     const { lambdaHome, lambdaAway } = computeFootballLambdas(input.stats);
-    return totalOverProbability(lambdaHome, lambdaAway, line);
+    return USE_DIXON_COLES_FOR_TOTALS
+      ? totalOverProbabilityDixonColes(lambdaHome, lambdaAway, line)
+      : totalOverProbability(lambdaHome, lambdaAway, line);
   }
   if (input.match.sport === 'hockey') {
     const { stats } = input;
@@ -545,8 +617,7 @@ export function getTotalProbabilityAtLine(input: ModelInput, line: number): numb
 }
 
 // Ask the model for the home-side cover probability at an ARBITRARY
-// handicap line. Used the same way as getTotalProbabilityAtLine, but
-// for the Asian Handicap market.
+// handicap line.
 export function getHandicapProbabilityAtLine(input: ModelInput, homeLine: number): number | null {
   if (input.match.sport !== 'football') return null;
   const { lambdaHome, lambdaAway } = computeFootballLambdas(input.stats);

@@ -8,7 +8,6 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const DB_PATH = process.env.DB_PATH || path.join(process.cwd(), 'data/sports.db');
-
 function runMigrations(db: Database.Database): void {
   // Migration 001: add sport column to stats if missing (pre-schema stats tables)
   const statsColumns = db
@@ -20,7 +19,40 @@ function runMigrations(db: Database.Database): void {
     logger.info('[DB] Migration: adding sport column to stats table');
     db.exec(`ALTER TABLE stats ADD COLUMN sport TEXT NOT NULL DEFAULT 'football'`);
   }
+
+  // Migration 002: add homeGoalsAvg/awayGoalsAvg if missing.
+  // FIXED: these were already present in schema.ts's CREATE TABLE statement
+  // when corners work began, which wrongly suggested they were already live —
+  // but CREATE TABLE IF NOT EXISTS never alters an existing table, so if the
+  // live DB predates these two columns being added to schema.ts, they were
+  // never actually created. Confirmed missing via a real test run
+  // (SqliteError: table stats has no column named homeGoalsAvg).
+  const hasHomeGoalsAvg = statsColumns.some((col) => col.name === 'homeGoalsAvg');
+  if (!hasHomeGoalsAvg) {
+    logger.info('[DB] Migration: adding homeGoalsAvg column to stats table');
+    db.exec(`ALTER TABLE stats ADD COLUMN homeGoalsAvg REAL`);
+  }
+
+  const hasAwayGoalsAvg = statsColumns.some((col) => col.name === 'awayGoalsAvg');
+  if (!hasAwayGoalsAvg) {
+    logger.info('[DB] Migration: adding awayGoalsAvg column to stats table');
+    db.exec(`ALTER TABLE stats ADD COLUMN awayGoalsAvg REAL`);
+  }
+
+  // Migration 003: add corners columns to stats if missing
+  const hasHomeCorners = statsColumns.some((col) => col.name === 'homeCornersAvg');
+  if (!hasHomeCorners) {
+    logger.info('[DB] Migration: adding homeCornersAvg column to stats table');
+    db.exec(`ALTER TABLE stats ADD COLUMN homeCornersAvg REAL`);
+  }
+
+  const hasAwayCorners = statsColumns.some((col) => col.name === 'awayCornersAvg');
+  if (!hasAwayCorners) {
+    logger.info('[DB] Migration: adding awayCornersAvg column to stats table');
+    db.exec(`ALTER TABLE stats ADD COLUMN awayCornersAvg REAL`);
+  }
 }
+
 
 export function getDb(): Database.Database {
   const dir = path.dirname(DB_PATH);

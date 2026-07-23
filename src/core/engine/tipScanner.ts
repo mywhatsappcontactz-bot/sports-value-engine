@@ -1,23 +1,4 @@
 // src/core/engine/tipScanner.ts
-//
-// REDESIGNED: tips are now pure stats-driven predictions, not a
-// Pinnacle-line-movement signal. The old version devigged Pinnacle's
-// own price and called that "trueProbability" — circular, since it
-// was just trusting Pinnacle to validate Pinnacle. This version pulls
-// trueProbability straight from probabilityModel.ts (the same
-// Poisson/Elo model valueEngine.ts uses), gated by the same data
-// completeness validator, across ALL sports (football, basketball,
-// tennis, hockey) — not just football/basketball totals + tennis
-// moneyline like before.
-//
-// Distinction from valueEngine.ts: tips do NOT require an edge against
-// a bookmaker price. A tip is "what does my model believe will happen,
-// with high confidence" — meant for building accumulators — regardless
-// of whether the bookmaker's price also happens to be mispriced.
-// Pinnacle is optional context (shown if available) rather than a
-// requirement, so a match with no Pinnacle coverage can still tip.
-// Draw is excluded as a bettable outcome, consistent with the value
-// engine.
 
 import { getDb } from '../database/db';
 import { logger } from '../utils/logger';
@@ -28,9 +9,11 @@ import {
   findMatchingSoftLines,
   injectSyntheticDoubleChance,
 } from './valueEngine';
+import { Repository } from '../database/repository';
 
 const db = getDb();
 const validator = new Validator();
+const repository = new Repository(db);
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -57,14 +40,14 @@ export interface Tip {
 // ─── CONFIG ─────────────────────────────────────────────────────────────────
 
 const MIN_TIP_CONFIDENCE = 0.80; // model probability floor to qualify as a tip
+// Corners now uses this same global floor (see modelFootballCorners in
+// probabilityModel.ts) — an earlier 60-70% "sweet spot" version needed its
+// own lower threshold, but simulation against real EPL data showed that
+// band barely filtered anything (91% tip rate), so corners was moved to
+// the same single 0.80 bar as every other market instead.
 
-// Per-sport allowed markets for tips — matches exactly what's fetched
-// in oddsClient.ts's SPORT_MARKETS, so tips never try to surface a
-// market that has no odds coverage for that sport (e.g. tennis has no
-// totals model at all, so it must stay moneyline-only or tips would
-// permanently be zero for tennis).
 const ALLOWED_TIP_MARKETS: Record<string, string[]> = {
-  football:   ['totals'],
+  football:   ['totals', 'corners_totals'],
   basketball: ['moneyline', 'totals'],
   tennis:     ['moneyline'],
   hockey:     ['moneyline'],
@@ -78,7 +61,8 @@ function isAllowedTipMarket(sport: string, market: string): boolean {
 
 function buildStatsRow(matchId: string, sport: string): any {
   return db.prepare(`
-    SELECT h2h, homeForm, awayForm, referee, situational, additionalContext, confidenceFactors
+    SELECT h2h, homeForm, awayForm, referee, situational, additionalContext, confidenceFactors,
+           homeGoalsAvg, awayGoalsAvg, homeCornersAvg, awayCornersAvg
     FROM stats
     WHERE matchId = ? AND sport = ?
   `).get(matchId, sport);
@@ -93,6 +77,10 @@ function parseStats(row: any): any {
     situational:       JSON.parse(row.situational || '{}'),
     additionalContext: JSON.parse(row.additionalContext || '{}'),
     confidenceFactors: JSON.parse(row.confidenceFactors || '{"dataCompleteness":0.35}'),
+    homeGoalsAvg:      row.homeGoalsAvg ?? undefined,
+    awayGoalsAvg:      row.awayGoalsAvg ?? undefined,
+    homeCornersAvg:    row.homeCornersAvg ?? undefined,
+    awayCornersAvg:    row.awayCornersAvg ?? undefined,
   };
 }
 
@@ -130,14 +118,12 @@ function buildSignal(
 
 function scanMatch(match: any, hoursToKickoff: number, tips: Tip[]): void {
   const statsRow = buildStatsRow(match.id, match.sport);
-  if (!statsRow) return; // no stats at all — nothing to predict from
+  if (!statsRow) return;
 
   const stats = parseStats(statsRow);
 
-  // Same data-quality bar used by the value engine — a prediction is
-  // only as good as the stats behind it.
   const completeness = stats.confidenceFactors?.dataCompleteness ?? 0;
-  if (completeness < 0.5) return; // require a real, decent stats picture for a TIP specifically (stricter than value engine's edge-based gate, since tips have no bookmaker-price cross-check to lean on)
+  if (completeness < 0.5) return;
 
   let allOdds = db.prepare(`
     SELECT id, matchId, bookmaker, market, selection, odds, impliedProbability, timestamp, source
@@ -145,7 +131,7 @@ function scanMatch(match: any, hoursToKickoff: number, tips: Tip[]): void {
     WHERE matchId = ?
   `).all(match.id) as any[];
 
-  if (!allOdds.length) return; // nothing to bet on locally, skip
+  if (!allOdds.length) return;
 
   if (match.sport === 'football') {
     allOdds = injectSyntheticDoubleChance(allOdds, match);
@@ -171,33 +157,18 @@ function scanMatch(match: any, hoursToKickoff: number, tips: Tip[]): void {
   }
 
   for (const prob of marketProbs) {
-    // Per-sport market restriction (see ALLOWED_TIP_MARKETS above):
-    // football = totals only, basketball = moneyline+totals,
-    // tennis/hockey = moneyline only.
     if (!isAllowedTipMarket(match.sport, prob.market)) continue;
 
-    // Draw is never a bettable tip, consistent with valueEngine.ts.
     if (prob.market === 'moneyline' && prob.selection === 'Draw') continue;
 
     if (prob.trueProbability < MIN_TIP_CONFIDENCE) continue;
 
-    // Odds are shown when available but no longer required to qualify
-    // as a tip — this is a pure stats prediction, not a "can you bet
-    // this right now" check. William Hill (via the free-tier Odds API)
-    // often only posts one main line per match, which was silently
-    // dropping legitimate high-confidence predictions like Under 3.5
-    // just because there was nothing to match against.
     const softLines = findMatchingSoftLines(prob, allOdds, match);
     const best = softLines.length
       ? softLines.reduce((a, b) => (a.odds > b.odds ? a : b))
       : null;
     const localOdds = best ? { bookmaker: best.bookmaker, odds: best.odds } : null;
 
-    // Pinnacle is optional context, never a requirement to qualify.
-    // Use the model's own probability as the soft-comparison baseline
-    // when no local odds exist, since getPinnacleSignal needs some
-    // reference point — we only read hasPinnacle/flagged from the
-    // result here, not the full signal strength, so this is safe.
     const softBaseline = localOdds ? 1 / localOdds.odds : prob.trueProbability;
     const pinnacle = getPinnacleSignal(
       prob.market,
@@ -228,6 +199,37 @@ function scanMatch(match: any, hoursToKickoff: number, tips: Tip[]): void {
       pinnacleAgrees,
       signal:            buildSignal(prob, pinnacleAvailable, pinnacleAgrees),
     });
+
+    // Corners tips get queued for grading here, at creation time — see
+    // corners_grading_queue in schema.ts and cornersGradingJob.ts for the
+    // separate daily job that actually resolves these against API-Football.
+    if (prob.market === 'corners_totals') {
+      repository.enqueueCornersGrading({
+        matchId: match.id,
+        homeTeam: match.homeTeam,
+        awayTeam: match.awayTeam,
+        league: match.league,
+        startTime: match.startTime,
+        targetSelection: prob.selection,
+        predictedProbability: prob.trueProbability,
+      });
+    }
+
+    // Goals totals tips (football only) get queued for grading the same
+    // way — see goals_grading_queue in schema.ts and goalsGradingJob.ts.
+    // Only football 'totals' tips qualify; basketball also uses market
+    // 'totals' but is points, not goals, so it's excluded here.
+    if (match.sport === 'football' && prob.market === 'totals') {
+      repository.enqueueGoalsGrading({
+        matchId: match.id,
+        homeTeam: match.homeTeam,
+        awayTeam: match.awayTeam,
+        league: match.league,
+        startTime: match.startTime,
+        targetSelection: prob.selection,
+        predictedProbability: prob.trueProbability,
+      });
+    }
   }
 }
 
@@ -259,9 +261,6 @@ export function runTipScanner(hoursWindow: number = 6): Tip[] {
     scanMatch(match, hoursToKickoff, tips);
   }
 
-  // One tip per match+market at most, keep the highest-confidence
-  // selection if multiple qualify (e.g. avoid tipping both Over 1.5
-  // AND Over 2.5 on the same match — redundant for accumulator building).
   const bestPerMatchMarket = new Map<string, Tip>();
   for (const tip of tips) {
     const key = `${tip.matchId}:${tip.targetMarket}`;
@@ -272,9 +271,6 @@ export function runTipScanner(hoursWindow: number = 6): Tip[] {
   }
 
   const deduped = Array.from(bestPerMatchMarket.values());
-  // Sorted by kickoff time (soonest first) rather than confidence —
-  // matches how the person actually wants to act on these, in the
-  // order games are played, not ranked by an abstract score.
   deduped.sort((a, b) => a.hoursToKickoff - b.hoursToKickoff);
 
   logger.info(`[TipScanner] Found ${deduped.length} qualifying tips`);
@@ -282,12 +278,6 @@ export function runTipScanner(hoursWindow: number = 6): Tip[] {
 }
 
 // ─── ACCUMULATOR SUGGESTER ─────────────────────────────────────────────────
-//
-// With 20+ qualifying tips per scan, manually finding a combo that lands
-// in the 1.80-2.00 target range is tedious. This automatically searches
-// 2-4 leg combinations and surfaces the best few — ranked by combined
-// confidence — so the person gets ready-made suggestions instead of a
-// wall of raw picks to sift through themselves.
 
 export interface SuggestedAccumulator {
   legs: Tip[];
@@ -297,10 +287,6 @@ export interface SuggestedAccumulator {
 }
 
 function tipOdds(tip: Tip): number {
-  // Prefer a real bookmaker price when available; fall back to the
-  // model's implied fair odds otherwise (clearly flagged via
-  // usesLivePricesOnly so the caller knows which combos are fully
-  // verified vs partly theoretical).
   return tip.localOdds ?? tip.impliedFairOdds;
 }
 
@@ -313,7 +299,6 @@ export function suggestAccumulators(
 ): SuggestedAccumulator[] {
   const results: SuggestedAccumulator[] = [];
 
-  // Avoid correlated legs — never combine two picks from the same match.
   function combos(pool: Tip[], size: number): Tip[][] {
     if (size === 0) return [[]];
     if (pool.length < size) return [];
@@ -343,7 +328,6 @@ export function suggestAccumulators(
     }
   }
 
-  // Rank: real-price combos first, then by highest combined confidence
   results.sort((a, b) => {
     if (a.usesLivePricesOnly !== b.usesLivePricesOnly) {
       return a.usesLivePricesOnly ? -1 : 1;

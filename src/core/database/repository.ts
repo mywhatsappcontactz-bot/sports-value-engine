@@ -1,6 +1,6 @@
-  import Database from 'better-sqlite3';
+import Database from 'better-sqlite3';
 import { v4 as uuidv4 } from 'uuid';
-import { Match, Odds, Stats, ValueBet, CLVRecord } from './schema';
+import { Match, Odds, Stats, ValueBet, CLVRecord, CornersGradingQueueEntry, GoalsGradingQueueEntry } from './schema';
 import { withTransaction } from './db';
 import { logger } from '../utils/logger';
 
@@ -118,13 +118,21 @@ export class Repository {
   }
 
   // ─── STATS ───────────────────────────────────────────────────────────────────
+  // FIXED: upsertStats now writes homeGoalsAvg/awayGoalsAvg/homeCornersAvg/
+  // awayCornersAvg — the original version had these columns in schema.ts but
+  // never included them in the UPDATE/INSERT statements, so any caller passing
+  // them had the values silently dropped. Confirmed inert for goals (nothing
+  // outside data-bridge/ reads homeGoalsAvg/awayGoalsAvg back out of storage —
+  // computeFootballLambdas derives from homeForm/awayForm instead), so this
+  // fix does not change value-bet behavior. It's required for corners, since
+  // homeCornersAvg/awayCornersAvg are the only place expected corners get stored.
 
   upsertStats(stats: Omit<Stats, 'id' | 'lastUpdated'>): void {
     const existing = this.db.prepare(
       `SELECT id FROM stats WHERE matchId = ?`
     ).get(stats.matchId) as { id: string } | undefined;
 
-    const values = [
+    const jsonValues = [
       JSON.stringify(stats.h2h || []),
       JSON.stringify(stats.homeForm || []),
       JSON.stringify(stats.awayForm || []),
@@ -134,19 +142,28 @@ export class Repository {
       JSON.stringify(stats.confidenceFactors || {}),
     ];
 
+    const numericValues = [
+      stats.homeGoalsAvg ?? null,
+      stats.awayGoalsAvg ?? null,
+      stats.homeCornersAvg ?? null,
+      stats.awayCornersAvg ?? null,
+    ];
+
     if (existing) {
       this.db.prepare(`
         UPDATE stats SET
           sport = ?, h2h = ?, homeForm = ?, awayForm = ?, referee = ?,
           situational = ?, additionalContext = ?, confidenceFactors = ?,
+          homeGoalsAvg = ?, awayGoalsAvg = ?, homeCornersAvg = ?, awayCornersAvg = ?,
           lastUpdated = CURRENT_TIMESTAMP
         WHERE matchId = ?
-      `).run(stats.sport, ...values, stats.matchId);
+      `).run(stats.sport, ...jsonValues, ...numericValues, stats.matchId);
     } else {
       this.db.prepare(`
-        INSERT INTO stats (id, matchId, sport, h2h, homeForm, awayForm, referee, situational, additionalContext, confidenceFactors)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(uuidv4(), stats.matchId, stats.sport, ...values);
+        INSERT INTO stats (id, matchId, sport, h2h, homeForm, awayForm, referee, situational,
+          additionalContext, confidenceFactors, homeGoalsAvg, awayGoalsAvg, homeCornersAvg, awayCornersAvg)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(uuidv4(), stats.matchId, stats.sport, ...jsonValues, ...numericValues);
     }
   }
 
@@ -167,6 +184,79 @@ export class Repository {
       additionalContext: JSON.parse(row.additionalContext || '{}'),
       confidenceFactors: JSON.parse(row.confidenceFactors || '{}'),
     };
+  }
+
+  // Partial update for corners only — avoids requiring the full Stats object
+  // (h2h, form, referee, etc.) when all we have is corner averages. Used by
+  // cornersAggregator.ts. Tip-scanner input only — never touches value_bets
+  // or anything valueEngine.ts / computeFootballLambdas reads.
+  updateCornersAvg(matchId: string, homeCornersAvg: number, awayCornersAvg: number): void {
+    const existing = this.db.prepare(
+      `SELECT id FROM stats WHERE matchId = ?`
+    ).get(matchId) as { id: string } | undefined;
+
+    if (!existing) {
+      logger.warn('[Repository] updateCornersAvg: no stats row exists for matchId — skipping', { matchId });
+      return;
+    }
+
+    this.db.prepare(`
+      UPDATE stats SET
+        homeCornersAvg = ?, awayCornersAvg = ?, lastUpdated = CURRENT_TIMESTAMP
+      WHERE matchId = ?
+    `).run(homeCornersAvg, awayCornersAvg, matchId);
+  }
+
+  // Partial update for goals only — writes into stats.additionalContext
+  // (JSON blob), NOT the separate homeGoalsAvg/awayGoalsAvg columns —
+  // computeFootballLambdas (probabilityModel.ts) reads
+  // stats.additionalContext.homeGoalsAvg/awayGoalsAvg, not the top-level
+  // columns, so writing there instead of the columns would have been
+  // silently inert, same class of bug the upsertStats fix above addressed.
+  // Used by goalsAggregator.ts. Feeds BOTH tipScanner.ts and valueEngine.ts,
+  // since both call computeFootballLambdas for football totals.
+  updateGoalsAvg(matchId: string, homeGoalsAvg: number, awayGoalsAvg: number): void {
+    const existing = this.db.prepare(
+      `SELECT id, additionalContext FROM stats WHERE matchId = ?`
+    ).get(matchId) as { id: string; additionalContext: string } | undefined;
+
+    if (!existing) {
+      logger.warn('[Repository] updateGoalsAvg: no stats row exists for matchId — skipping', { matchId });
+      return;
+    }
+
+    const context = JSON.parse(existing.additionalContext || '{}');
+    context.homeGoalsAvg = homeGoalsAvg;
+    context.awayGoalsAvg = awayGoalsAvg;
+
+    this.db.prepare(`
+      UPDATE stats SET
+        additionalContext = ?, lastUpdated = CURRENT_TIMESTAMP
+      WHERE matchId = ?
+    `).run(JSON.stringify(context), matchId);
+  }
+
+  // Partial update for confidenceFactors.dataCompleteness — safely adjusts
+  // dataCompleteness without overwriting other fields (like corners, goals, or context).
+  // Used by sync routines to lower completeness when goal scraping fails.
+  updateDataCompleteness(matchId: string, dataCompleteness: number): void {
+    const existing = this.db.prepare(
+      `SELECT id, confidenceFactors FROM stats WHERE matchId = ?`
+    ).get(matchId) as { id: string; confidenceFactors: string } | undefined;
+
+    if (!existing) {
+      logger.warn('[Repository] updateDataCompleteness: no stats row exists for matchId — skipping', { matchId });
+      return;
+    }
+
+    const factors = JSON.parse(existing.confidenceFactors || '{}');
+    factors.dataCompleteness = dataCompleteness;
+
+    this.db.prepare(`
+      UPDATE stats SET
+        confidenceFactors = ?, lastUpdated = CURRENT_TIMESTAMP
+      WHERE matchId = ?
+    `).run(JSON.stringify(factors), matchId);
   }
 
   // ─── VALUE BETS ──────────────────────────────────────────────────────────────
@@ -272,5 +362,86 @@ export class Repository {
       totalBets: row?.totalBets || 0,
       positiveCLV: row?.positiveCLV || 0,
     };
+  }
+
+  // ─── CORNERS GRADING ─────────────────────────────────────────────────────
+
+  enqueueCornersGrading(entry: Omit<CornersGradingQueueEntry, 'id' | 'status' | 'createdAt'>): void {
+    const existing = this.db.prepare(`
+      SELECT id FROM corners_grading_queue WHERE matchId = ? AND targetSelection = ?
+    `).get(entry.matchId, entry.targetSelection) as { id: string } | undefined;
+
+    if (existing) return;
+
+    const id = uuidv4();
+    this.db.prepare(`
+      INSERT INTO corners_grading_queue
+        (id, matchId, homeTeam, awayTeam, league, startTime, targetSelection, predictedProbability, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+    `).run(
+      id, entry.matchId, entry.homeTeam, entry.awayTeam, entry.league,
+      entry.startTime, entry.targetSelection, entry.predictedProbability
+    );
+  }
+
+  getPendingCornersGrading(limit: number): CornersGradingQueueEntry[] {
+    return this.db.prepare(`
+      SELECT * FROM corners_grading_queue
+      WHERE status = 'pending' AND startTime < CURRENT_TIMESTAMP
+      ORDER BY startTime ASC
+      LIMIT ?
+    `).all(limit) as CornersGradingQueueEntry[];
+  }
+
+  markCornersGraded(id: string, actualCorners: number, hit: boolean, brierScore: number): void {
+    this.db.prepare(`
+      UPDATE corners_grading_queue
+      SET status = 'graded', actualCorners = ?, hit = ?, brierScore = ?, gradedAt = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(actualCorners, hit ? 1 : 0, brierScore, id);
+  }
+
+  markCornersUnresolvable(id: string): void {
+    this.db.prepare(`
+      UPDATE corners_grading_queue
+      SET status = 'unresolvable', gradedAt = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(id);
+  }
+
+  getCornersGradingSummary(): { totalGraded: number; hitRate: number; avgBrierScore: number } {
+    const row = this.db.prepare(`
+      SELECT
+        COUNT(*) as totalGraded,
+        AVG(hit) as hitRate,
+        AVG(brierScore) as avgBrierScore
+      FROM corners_grading_queue
+      WHERE status = 'graded'
+    `).get() as any;
+
+    return {
+      totalGraded: row?.totalGraded || 0,
+      hitRate: row?.hitRate || 0,
+      avgBrierScore: row?.avgBrierScore || 0,
+    };
+  }
+  // ─── GOALS GRADING ───────────────────────────────────────────────────────────
+
+  enqueueGoalsGrading(entry: Omit<GoalsGradingQueueEntry, 'id' | 'status' | 'createdAt'>): void {
+    const existing = this.db.prepare(`
+      SELECT id FROM goals_grading_queue WHERE matchId = ? AND targetSelection = ?
+    `).get(entry.matchId, entry.targetSelection) as { id: string } | undefined;
+
+    if (existing) return;
+
+    const id = uuidv4();
+    this.db.prepare(`
+      INSERT INTO goals_grading_queue
+        (id, matchId, homeTeam, awayTeam, league, startTime, targetSelection, predictedProbability, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+    `).run(
+      id, entry.matchId, entry.homeTeam, entry.awayTeam, entry.league,
+      entry.startTime, entry.targetSelection, entry.predictedProbability
+    );
   }
 }

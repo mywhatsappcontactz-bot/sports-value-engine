@@ -1,29 +1,6 @@
 // src/cli/commands/Tips.ts
 process.env.CLI_SILENT = 'true';
-import { runTipScanner, suggestAccumulators, Tip, SuggestedAccumulator } from '../../core/engine/tipScanner';
-
-function printAccumulatorSuggestions(suggestions: SuggestedAccumulator[]) {
-  console.log('\n\x1b[1m\x1b[32m' + '═'.repeat(60) + '\x1b[0m');
-  console.log('\x1b[1m\x1b[32m   💰 SUGGESTED ACCUMULATORS (1.80-2.00 target)\x1b[0m');
-  console.log('\x1b[1m\x1b[32m' + '═'.repeat(60) + '\x1b[0m\n');
-
-  if (!suggestions.length) {
-    console.log('   \x1b[90mNo combo currently lands in the 1.80-2.00 range — check the full list below.\x1b[0m\n');
-    return;
-  }
-
-  suggestions.forEach((sugg, i) => {
-    const priceNote = sugg.usesLivePricesOnly
-      ? '\x1b[32m(all live prices)\x1b[0m'
-      : '\x1b[33m(includes fair-odds estimate — verify before betting)\x1b[0m';
-    console.log(`   \x1b[1mOption ${i + 1}\x1b[0m — Combined odds: \x1b[1m${sugg.combinedOdds}\x1b[0m | Combined confidence: ${(sugg.combinedProbability * 100).toFixed(1)}% ${priceNote}`);
-    for (const leg of sugg.legs) {
-      const price = leg.localOdds !== null ? `${leg.localOdds} (${leg.localBookmaker})` : `~${leg.impliedFairOdds} (no live price)`;
-      console.log(`     • ${leg.homeTeam} vs ${leg.awayTeam} — ${leg.targetSelection} (${leg.targetMarket}) @ ${price} [${leg.confidence}%]`);
-    }
-    console.log('');
-  });
-}
+import { runTipScanner, Tip } from '../../core/engine/tipScanner';
 
 function printTips(tips: Tip[]) {
   console.log('\n\x1b[1m\x1b[33m' + '═'.repeat(60) + '\x1b[0m');
@@ -36,7 +13,7 @@ function printTips(tips: Tip[]) {
   }
 
   console.log(`   Qualifying picks : \x1b[32m${tips.length}\x1b[0m`);
-  console.log(`   Pick your best 3 and build a 1.80-2.00 accumulator\n`);
+  console.log(`   Select your best legs and build your accumulator\n`);
   console.log('   ' + '─'.repeat(60));
 
   for (const tip of tips) {
@@ -58,6 +35,4 @@ function printTips(tips: Tip[]) {
 
 const hoursArg = process.argv[2] ? parseInt(process.argv[2]) : 6;
 const tips = runTipScanner(hoursArg);
-const suggestions = suggestAccumulators(tips);
-printAccumulatorSuggestions(suggestions);
 printTips(tips);

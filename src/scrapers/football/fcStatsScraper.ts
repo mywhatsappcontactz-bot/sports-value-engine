@@ -67,26 +67,28 @@ export const FCSTATS_LEAGUE_MAP: Record<string, string> = {
   'Serie A - Italy':              'table,serie-a-italy,39,1.php',
   'Super League - China':         'table,super-league-china,42,1.php',
   'Brazil Série A':               'table,serie-a-brazil,10,1.php',
-  'K League 1':                   'table,k-league-1-south-korea,65,1.php',
+  'K League 1':                   'table,k-league-1-south-korea,94,1.php',
 
   // ── Starting mid/late July 2026 ─────────────────────────────────
-  'Denmark Superliga':            'table,superliga-denmark,40,1.php',
-  'Austrian Football Bundesliga': 'table,bundesliga-austria,23,1.php',
+  'Denmark Superliga':            'table,superliga-denmark,15,1.php',
+
+  
+  'Austrian Football Bundesliga': 'table,bundesliga-austria,8,1.php',
 
   // ── Starting late July 2026 ─────────────────────────────────────
-  'Premiership - Scotland':       'table,premiership-scotland,41,1.php',
-  'Swiss Superleague':            'table,super-league-switzerland,54,1.php',
+  'Premiership - Scotland':       'table,premiership-scotland,35,1.php',
+  'Swiss Superleague':            'table,super-league-switzerland,56,1.php',
 
   // ── Starting early August 2026 ──────────────────────────────────
   'EPL':                          'table,premier-league-england,1,1.php',
-  'Championship':                 'table,championship-england,18,1.php',
-  'League 1':                     'table,league-one-england,19,1.php',
-  'League 2':                     'table,league-two-england,20,1.php',
-  'La Liga - Spain':              'table,la-liga-spain,17,1.php',
+  'Championship':                 'table,championship-england,2,1.php',
+  'League 1':                     'table,league-one-england,3,1.php',
+  'League 2':                     'table,league-two-england,4,1.php',
+  'La Liga - Spain':              'table,la-liga-spain,19,1.php',
   'La Liga 2 - Spain':            'table,segunda-division-spain,20,1.php',
   'Ligue 1 - France':             'table,ligue-1-france,21,1.php',
-  'Bundesliga - Germany':         'table,bundesliga-germany,22,1.php',
-  'Dutch Eredivisie':             'table,eredivisie-netherlands,55,1.php',
+  'Bundesliga - Germany':         'table,bundesliga-germany,24,1.php',
+  'Dutch Eredivisie':             'table,eredivisie-netherlands,21,1.php',
 };
 
 // ─── PERSISTENT FILE CACHE ────────────────────────────────────────────────────

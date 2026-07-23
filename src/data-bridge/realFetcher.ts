@@ -10,6 +10,9 @@ import { fetchLeagueData, fetchH2H, findTeam, FCSTATS_LEAGUE_MAP } from '../scra
 import { v4 as uuidv4 } from 'uuid';
 import { fetchFDCOH2H, FDCO_LEAGUE_MAP } from '../scrapers/football/footballDataScraper';
 import { fetchWNBAH2H } from '../scrapers/basketball/wnbaScraper';
+import { aggregateCornersForMatch } from '../core/engine/cornersAggregator';
+import { aggregateGoalsForMatch } from '../core/engine/goalsAggregator';
+import { SOCCERSTATS_LEAGUE_MAP } from '../scrapers/football/soccerStatsGoalsScraper';
 
 export interface RealFetchResult {
   sport: string;
@@ -396,6 +399,51 @@ export class RealFetcher {
     }
   }
 
+  private async fetchAndSaveGoalsOnlyStats(
+    match: { homeTeam: string; awayTeam: string; league: string; externalId?: string },
+    matchId: string,
+    result: RealFetchResult,
+  ): Promise<boolean> {
+    if (!SOCCERSTATS_LEAGUE_MAP[match.league]) {
+      return false;
+    }
+
+    const rawStats: any = {
+      externalMatchId: (match as any).externalMatchId || match.externalId || matchId,
+      sport: 'football',
+      confidenceFactors: { dataCompleteness: 0.5 },
+      h2h: [],
+      homeForm: [],
+      awayForm: [],
+      referee: { name: '', avgYellowCards: 0, avgRedCards: 0, avgFouls: 0 },
+      situational: { weather: 'clear', temperature: 20, fatigueDays: 3 },
+      additionalContext: { homeGoalsAvg: 1.2, awayGoalsAvg: 1.0 },
+    };
+
+    const cleanedStats = this.cleaner.cleanStats(rawStats, matchId, 'football');
+    if (!cleanedStats) return false;
+
+    this.repo.upsertStats(cleanedStats);
+    result.statsSaved++;
+
+    try {
+      await aggregateGoalsForMatch(
+        this.repo,
+        matchId,
+        match.league,
+        match.homeTeam,
+        match.awayTeam,
+      );
+    } catch (err: any) {
+      logger.warn('[RealFetcher] Goals aggregation failed in fallback', {
+        match: `${match.homeTeam} vs ${match.awayTeam}`,
+        error: err.message,
+      });
+    }
+
+    return true;
+  }
+
   private async fetchAndSaveFootballStats(
     match: { homeTeam: string; awayTeam: string; league: string; externalId?: string },
     matchId: string,
@@ -405,7 +453,10 @@ export class RealFetcher {
     try {
       const leagueData = leagueCache.get(match.league);
       if (!leagueData) {
-        console.log(`[DEBUG STATS] no league data for "${match.league}" — skipping ${match.homeTeam} vs ${match.awayTeam}`);
+        const handledByFallback = await this.fetchAndSaveGoalsOnlyStats(match, matchId, result);
+        if (!handledByFallback) {
+          console.log(`[DEBUG STATS] no league data for "${match.league}" — skipping ${match.homeTeam} vs ${match.awayTeam}`);
+        }
         return;
       }
 
@@ -465,6 +516,36 @@ export class RealFetcher {
         homeGP: homeTeamStats.gp,
         awayGP: awayTeamStats.gp,
       });
+
+      try {
+        await aggregateCornersForMatch(
+          this.repo,
+          matchId,
+          match.league,
+          match.homeTeam,
+          match.awayTeam,
+        );
+      } catch (cornersErr: any) {
+        logger.warn('[RealFetcher] Corners aggregation failed — continuing without corners data', {
+          match: `${match.homeTeam} vs ${match.awayTeam}`,
+          error: cornersErr.message,
+        });
+      }
+
+      try {
+        await aggregateGoalsForMatch(
+          this.repo,
+          matchId,
+          match.league,
+          match.homeTeam,
+          match.awayTeam,
+        );
+      } catch (goalsErr: any) {
+        logger.warn('[RealFetcher] Goals aggregation failed — continuing without goals data', {
+          match: `${match.homeTeam} vs ${match.awayTeam}`,
+          error: goalsErr.message,
+        });
+      }
 
     } catch (scrapeErr: any) {
       logger.warn('[RealFetcher] Football scrape failed — continuing without stats', {

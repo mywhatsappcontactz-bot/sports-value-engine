@@ -49,14 +49,33 @@ function buildDefaultStats(matchId: string, sport: string): Stats {
 
 export type Role = 'home' | 'away' | 'draw' | 'other';
 
+// FIXED: originally only matched the literal strings 'Home'/'Away'/'Draw',
+// which is how football/basketball/hockey shape their moneyline selections.
+// Tennis (modelTennis in probabilityModel.ts) shapes moneyline selections as
+// the actual player name — input.match.homeTeam / input.match.awayTeam — not
+// the literal word 'Home'. That meant every tennis moneyline prob fell
+// through to role: 'other', findMatchingSoftLines returned [] unconditionally
+// (see the 'other' early-return below), betsEvaluated never incremented for
+// tennis, and no tennis value bet could ever be produced — regardless of how
+// strong the underlying prediction was. Confirmed as the cause of "tennis
+// predictions work, value bets never appear."
+//
+// Fix: accept match context so a selection matching match.homeTeam/awayTeam
+// resolves correctly, same approach oddsSelectionRole already used.
 export function modelSelectionRole(
   selection: string,
   market: string,
+  match?: { homeTeam: string; awayTeam: string },
 ): { role: Role; line?: number } {
   if (market === 'moneyline') {
     if (selection === 'Home') return { role: 'home' };
     if (selection === 'Away') return { role: 'away' };
     if (selection === 'Draw') return { role: 'draw' };
+    // Tennis (and any other sport shaping selections as actual names)
+    if (match) {
+      if (selection === match.homeTeam) return { role: 'home' };
+      if (selection === match.awayTeam) return { role: 'away' };
+    }
   }
   if (market === 'handicap') {
     const m = selection.match(/^(Home|Away)\s*([+-]?[\d.]+)$/);
@@ -101,7 +120,11 @@ export function findMatchingSoftLines(
   match: { homeTeam: string; awayTeam: string },
 ): Odds[] {
   if (prob.market === 'moneyline' || prob.market === 'handicap') {
-    const modelRole = modelSelectionRole(prob.selection, prob.market);
+    // FIXED: match context now passed through so tennis (and anything else
+    // using actual names instead of 'Home'/'Away') resolves correctly —
+    // see modelSelectionRole's comment above for why this was silently
+    // broken before.
+    const modelRole = modelSelectionRole(prob.selection, prob.market, match);
     if (modelRole.role === 'other') return []; // unparseable, skip safely
 
     return allOdds.filter(o => {
