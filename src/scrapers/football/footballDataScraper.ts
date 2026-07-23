@@ -24,6 +24,13 @@ export const FDCO_LEAGUE_MAP: Record<string, FDCOSource> = {
   'Championship':                 { type: 'season', code: 'E1',  seasons: ['2526', '2425', '2324'] },
   'League 1':                     { type: 'season', code: 'E2',  seasons: ['2526', '2425', '2324'] },
   'League 2':                     { type: 'season', code: 'E3',  seasons: ['2526', '2425', '2324'] },
+
+'Brazil Série A':    { type: 'new', code: 'BRA' },
+'Brazil Série B':    { type: 'new', code: 'BRA' },
+'League of Ireland': { type: 'new', code: 'IRL' },
+'Super League - China': { type: 'new', code: 'CHN' },
+'K League 1':        { type: 'new', code: 'KOR' },
+
 };
 
 interface FDCOMatch {
