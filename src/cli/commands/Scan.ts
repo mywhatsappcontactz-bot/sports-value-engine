@@ -8,7 +8,9 @@ import { recordClosingLines } from '../../core/utils/clvTracker';
 import { logger } from '../../core/utils/logger';
 import { recordOddsSnapshot } from '../../core/engine/oddsHistoryRecorder';
 import { runTipScanner, Tip } from '../../core/engine/tipScanner';
+import { syncAllConfiguredLeagues } from '../../data-bridge/soccerStatsFixturesSync';
 import { notifyValueBets, notifyTips } from '../../core/utils/telegramNotifier';
+import { syncAllFallbackLeagues } from '../../data-bridge/soccerStatsFallbackFixturesSync';
 
 // ─── DISPLAY HELPERS ──────────────────────────────────────────────────────────
 
@@ -156,6 +158,20 @@ async function runScan(sportArg?: string) {
 
   repo.markOldMatchesAsCompleted();
 
+
+// Sync fixtures from soccerstats.com for all leagues (fallback for when TheOddsAPI has no matches)
+// Only runs when football is actually in scope for this run — this call
+// alone can take several minutes (26 leagues, teamResultsScraper.ts has
+// no caching), so a basketball/tennis-only run shouldn't pay that cost
+// just because it happened to run unconditionally before.
+if (sportsToScan.includes('football')) {
+  logger.info('[scan] Syncing fallback fixtures...');
+  await syncAllFallbackLeagues();
+  logger.info('[scan] Fallback fixtures sync complete.');
+} else {
+  logger.info('[scan] Skipping fallback fixtures sync — football not in scope for this run.');
+}
+
   const allResults: { sport: string; result: EngineResult }[] = [];
 
   for (const sport of sportsToScan) {
@@ -186,6 +202,18 @@ async function runScan(sportArg?: string) {
   logger.info('[scan] Running CLV tracker for upcoming matches...');
   await recordClosingLines(repo);
   logger.info('[scan] CLV tracking complete.');
+
+  // Sync fixtures for leagues TheOddsAPI doesn't cover (Spain, Spain2,
+  // Germany, Germany2, Turkey, Netherlands) — tip-scanner-only, since
+  // these matches have no odds rows and ValueEngine skips anything
+ // without odds regardless. Runs independently of the sport loop above.
+  // Also football-specific — same reasoning as the fallback sync above.
+  if (sportsToScan.includes('football')) {
+    logger.info('[scan] Syncing soccerstats.com fixtures for uncovered leagues...');
+    const fixturesSyncResults = await syncAllConfiguredLeagues();
+    const totalFixturesSynced = fixturesSyncResults.reduce((s, r) => s + r.matchesSaved, 0);
+    logger.info(`[scan] Fixtures sync complete — ${totalFixturesSynced} matches synced across ${fixturesSyncResults.length} leagues.`);
+  }
 
   // Run tip scanner and notify
   logger.info('[scan] Running tip scanner...');

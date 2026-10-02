@@ -27,13 +27,13 @@ export const THRESHOLDS = {
   GOOD_CONFIDENCE: 0.70,
   IDEAL_CONFIDENCE: 0.80,
 
-  // ── H2H ──
-  MIN_H2H_RECORDS: 3,
+  // ── H2H ── (generic "ideal" target, shared across sports — the
+  // per-sport MINIMUM now lives in SPORT_CONFIG below instead)
   IDEAL_H2H_RECORDS: 6,
   MAX_H2H_AGE_DAYS: 1095,
 
-  // ── FORM ──
-  MIN_FORM_RECORDS: 5,
+  // ── FORM ── (generic "ideal" target, shared across sports — the
+  // per-sport MINIMUM now lives in SPORT_CONFIG below instead)
   IDEAL_FORM_RECORDS: 8,
   MAX_FORM_AGE_DAYS: 90,
 
@@ -42,8 +42,8 @@ export const THRESHOLDS = {
   IDEAL_HOURS_UNTIL_MATCH: 24,
   MAX_HOURS_UNTIL_MATCH: 120,
 
-  // ── DATA COMPLETENESS ──
-  MIN_DATA_COMPLETENESS: 0.30,
+  // ── DATA COMPLETENESS ── (generic "good" target, shared across sports —
+  // the per-sport MINIMUM now lives in SPORT_CONFIG below instead)
   GOOD_DATA_COMPLETENESS: 0.70,
 
   // ── SPORT SPECIFIC ──
@@ -53,6 +53,58 @@ export const THRESHOLDS = {
 } as const;
 
 export type ThresholdKeys = keyof typeof THRESHOLDS;
+
+// ─── SPORT CONFIG ─────────────────────────────────────────────────────────────
+//
+// Single source of truth for per-sport validation minimums. Previously
+// this was three separate things scattered through the file: a
+// `validSports` array in validateMatch(), an `isTennis` boolean in
+// validateStats() controlling H2H minimum, and a second `isTennis` check
+// controlling form minimum — adding a sport meant remembering to update
+// all three, which is exactly how NFL (and baseball before it) almost
+// shipped silently broken: 'nfl' wasn't in validSports at all, and even
+// once added, the generic MIN_H2H_RECORDS=3 would have rejected nearly
+// every real NFL matchup (teams often meet 0-2 times a season).
+//
+// Now: one sport = one entry here. Being absent from this object IS what
+// makes a sport invalid (validateMatch checks key existence directly,
+// no separate list to keep in sync).
+//
+// Existing sports' values are copied EXACTLY from what was previously
+// hardcoded — this is a pure refactor, not a behavior change, for
+// football/tennis/basketball/hockey.
+
+export interface SportValidationConfig {
+  minH2H: number;
+  minForm: number;
+  minDataCompleteness: number;
+}
+
+export const SPORT_CONFIG: Record<string, SportValidationConfig> = {
+  football:   { minH2H: 3, minForm: 5, minDataCompleteness: 0.30 },
+  basketball: { minH2H: 3, minForm: 5, minDataCompleteness: 0.30 },
+  hockey:     { minH2H: 3, minForm: 5, minDataCompleteness: 0.30 },
+  tennis:     { minH2H: 0, minForm: 0, minDataCompleteness: 0.15 },
+
+  // NFL: H2H exempted (same mechanism as tennis) — division rivals may
+  // meet 1-2x/season, non-division opponents can go years without
+  // meeting at all, so a hard H2H minimum would reject nearly every real
+  // matchup. minForm matches nflModel.ts's own MIN_PRIOR_GAMES=3, so the
+  // validator's gate lines up with what the model itself requires rather
+  // than silently disagreeing with it.
+  nfl:        { minH2H: 0, minForm: 3, minDataCompleteness: 0.30 },
+
+  // darts: placeholder, NOT yet active — real numbers depend on what
+  // data the darts scraper/model actually end up using once built (same
+  // "verify before trusting" discipline as every other sport). Left
+  // commented rather than guessed:
+  // darts: { minH2H: ?, minForm: ?, minDataCompleteness: ? },
+};
+
+function getSportConfig(sport: string | undefined): SportValidationConfig | null {
+  if (!sport) return null;
+  return SPORT_CONFIG[sport] ?? null;
+}
 
 // ─── VALIDATOR CLASS ──────────────────────────────────────────────────────────
 
@@ -92,8 +144,10 @@ export class Validator {
       }
     }
 
-    const validSports = ['football', 'tennis', 'basketball', 'hockey'];
-    if (match.sport && !validSports.includes(match.sport)) {
+    // Being present in SPORT_CONFIG IS what makes a sport valid now —
+    // see SPORT_CONFIG comment above for why this replaced a separate
+    // validSports array.
+    if (match.sport && !getSportConfig(match.sport)) {
       errors.push(`Invalid sport: ${match.sport}`);
     }
 
@@ -163,13 +217,18 @@ export class Validator {
 
     if (!stats.matchId) errors.push('Missing matchId');
 
-    const isTennis = stats.sport === 'tennis';
+    // Single lookup replaces the old `const isTennis = stats.sport ===
+    // 'tennis'` pattern — see SPORT_CONFIG comment at top of file.
+    // Falls back to football/basketball/hockey's original defaults
+    // (minH2H:3, minForm:5, minDataCompleteness:0.30) if somehow an
+    // unconfigured sport reaches this point — matchable behavior to the
+    // original THRESHOLDS constants, never silently permissive.
+    const config = getSportConfig(stats.sport) ?? { minH2H: 3, minForm: 5, minDataCompleteness: 0.30 };
 
     // ── DATA COMPLETENESS ──
     const completeness = stats.confidenceFactors?.dataCompleteness || 0;
-    const minCompleteness = isTennis ? 0.15 : THRESHOLDS.MIN_DATA_COMPLETENESS;
-    if (completeness < minCompleteness) {
-      errors.push(`Data completeness too low: ${(completeness * 100).toFixed(0)}% (min ${minCompleteness * 100}%)`);
+    if (completeness < config.minDataCompleteness) {
+      errors.push(`Data completeness too low: ${(completeness * 100).toFixed(0)}% (min ${config.minDataCompleteness * 100}%)`);
     } else if (completeness < THRESHOLDS.GOOD_DATA_COMPLETENESS) {
       warnings.push(`Moderate data completeness: ${(completeness * 100).toFixed(0)}%`);
       confidenceAdjustment *= 0.85;
@@ -177,9 +236,8 @@ export class Validator {
 
     // ── H2H VALIDATION ──
     const h2hCount = stats.h2h?.length || 0;
-    const minH2H = isTennis ? 0 : THRESHOLDS.MIN_H2H_RECORDS;
-    if (h2hCount < minH2H) {
-      errors.push(`H2H sample too small: ${h2hCount} records (min ${minH2H})`);
+    if (h2hCount < config.minH2H) {
+      errors.push(`H2H sample too small: ${h2hCount} records (min ${config.minH2H})`);
     } else if (h2hCount < THRESHOLDS.IDEAL_H2H_RECORDS) {
       warnings.push(`Below ideal H2H sample: ${h2hCount} (ideal ${THRESHOLDS.IDEAL_H2H_RECORDS})`);
       confidenceAdjustment *= 0.90;
@@ -200,23 +258,28 @@ export class Validator {
     // ── FORM VALIDATION ──
     const homeFormCount = stats.homeForm?.length || 0;
     const awayFormCount = stats.awayForm?.length || 0;
-    const minForm = isTennis ? 0 : THRESHOLDS.MIN_FORM_RECORDS;
 
-    if (homeFormCount < minForm) {
-      errors.push(`Home form too small: ${homeFormCount} games (min ${minForm})`);
+    if (homeFormCount < config.minForm) {
+      errors.push(`Home form too small: ${homeFormCount} games (min ${config.minForm})`);
     } else if (homeFormCount < THRESHOLDS.IDEAL_FORM_RECORDS) {
       warnings.push(`Below ideal home form: ${homeFormCount} games (ideal ${THRESHOLDS.IDEAL_FORM_RECORDS})`);
       confidenceAdjustment *= 0.90;
     }
 
-    if (awayFormCount < minForm) {
-      errors.push(`Away form too small: ${awayFormCount} games (min ${minForm})`);
+    if (awayFormCount < config.minForm) {
+      errors.push(`Away form too small: ${awayFormCount} games (min ${config.minForm})`);
     } else if (awayFormCount < THRESHOLDS.IDEAL_FORM_RECORDS) {
       warnings.push(`Below ideal away form: ${awayFormCount} games (ideal ${THRESHOLDS.IDEAL_FORM_RECORDS})`);
       confidenceAdjustment *= 0.90;
     }
 
-    if (!isTennis && stats.homeForm?.length > 0) {
+    // Age checks previously gated on `!isTennis` (tennis's own real-world
+    // match cadence makes a 90-day-old "latest form" normal, not stale).
+    // Generalized to any sport whose minForm is 0 — the same underlying
+    // reason applies to any sport where form isn't a required signal.
+    const skipFormAgeCheck = config.minForm === 0;
+
+    if (!skipFormAgeCheck && stats.homeForm?.length > 0) {
       const latestHomeForm = new Date(stats.homeForm[0].date);
       const homeFormAgeDays = (Date.now() - latestHomeForm.getTime()) / 86400000;
       if (homeFormAgeDays > THRESHOLDS.MAX_FORM_AGE_DAYS) {
@@ -224,7 +287,7 @@ export class Validator {
       }
     }
 
-    if (!isTennis && stats.awayForm?.length > 0) {
+    if (!skipFormAgeCheck && stats.awayForm?.length > 0) {
       const latestAwayForm = new Date(stats.awayForm[0].date);
       const awayFormAgeDays = (Date.now() - latestAwayForm.getTime()) / 86400000;
       if (awayFormAgeDays > THRESHOLDS.MAX_FORM_AGE_DAYS) {
@@ -232,7 +295,8 @@ export class Validator {
       }
     }
 
-    // ── SPORT-SPECIFIC RULES ──
+    // ── SPORT-SPECIFIC RULES ── (unchanged — same detailed per-sport
+    // logic as before, just no longer touches the generic minimums above)
     const sport = stats.sport;
 
     if (sport === 'football') {
@@ -331,12 +395,29 @@ export class Validator {
       }
 
     } else if (sport === 'basketball') {
-      const pace = (stats.additionalContext?.pace as number | undefined);
-      if (pace === undefined) {
-        errors.push(`Basketball: missing pace data — totals cannot be priced`);
-      } else if (pace < THRESHOLDS.BASKETBALL_MIN_PACE) {
-        warnings.push(`Basketball: low pace (${pace})`);
-        confidenceAdjustment *= 0.90;
+      // FIXED: this rule previously required additionalContext.pace to
+      // exist ("Basketball: missing pace data — totals cannot be
+      // priced"). pace is now deliberately never populated (see
+      // realFetcher.ts's basketballStatsToRawStats comment) — it used to
+      // hold a mislabeled value (WNBA's h2h.pace was actually the average
+      // COMBINED SCORE across recent H2H games, ~150-200+, not a real
+      // possessions-based pace figure ~90-105) that silently corrupted
+      // modelBasketball's totals calculation when present. Since pace is
+      // now correctly absent, this rule rejected 100% of basketball
+      // stats regardless of data quality. Checking the real fields
+      // modelBasketball actually uses instead (homePpgFor/awayPpgFor/
+      // homePpgAgainst/awayPpgAgainst) restores the intended purpose of
+      // this check — reject when totals genuinely can't be priced — 
+      // without rejecting on a field that's supposed to be empty.
+      const ctx = stats.additionalContext || {};
+      const hasPpgData =
+        ctx.homePpgFor !== undefined && ctx.homePpgFor !== null &&
+        ctx.awayPpgFor !== undefined && ctx.awayPpgFor !== null &&
+        ctx.homePpgAgainst !== undefined && ctx.homePpgAgainst !== null &&
+        ctx.awayPpgAgainst !== undefined && ctx.awayPpgAgainst !== null;
+
+      if (!hasPpgData) {
+        errors.push('Basketball: missing PPG data — totals cannot be priced');
       }
 
       const hasPointsData = stats.homeForm?.some(f => f.goalsFor !== undefined);
@@ -414,6 +495,32 @@ export class Validator {
           warnings.push('Hockey: outdoor game conditions — extreme variance');
           confidenceAdjustment *= 0.75;
         }
+      }
+
+    } else if (sport === 'nfl') {
+      // NFL-specific rules — new, since this sport didn't exist in the
+      // validator before tonight. Mirrors the shape of football/hockey's
+      // goals-data check, adapted to nflModel.ts's actual signal
+      // (yardage/turnover data in additionalContext, not goalsFor/
+      // goalsAgainst in form — see nflStatsMapper.ts).
+      const ctx = stats.additionalContext || {};
+      const hasYardageData =
+        ctx.homeYardsPerPlayAvg !== undefined && ctx.homeYardsPerPlayAvg !== null &&
+        ctx.awayYardsPerPlayAvg !== undefined && ctx.awayYardsPerPlayAvg !== null;
+
+      if (!hasYardageData) {
+        errors.push('NFL: missing yardage data — moneyline cannot be priced');
+      }
+
+      const homeVenueGames = stats.homeForm?.filter(f => f.venue === 'home').length || 0;
+      const awayVenueGames = stats.awayForm?.filter(f => f.venue === 'away').length || 0;
+      if (homeVenueGames < 1) {
+        warnings.push(`NFL: low home venue sample: ${homeVenueGames}`);
+        confidenceAdjustment *= 0.90;
+      }
+      if (awayVenueGames < 1) {
+        warnings.push(`NFL: low away venue sample: ${awayVenueGames}`);
+        confidenceAdjustment *= 0.90;
       }
     }
 
@@ -493,3 +600,4 @@ export class Validator {
     }
   }
 }
+ 

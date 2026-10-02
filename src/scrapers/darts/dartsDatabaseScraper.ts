@@ -10,7 +10,17 @@
 //   - player-profile-live.php?pid=X — career + current-year stats
 //   - display-event.php?eid=X&tna=...&eda=... — per-match results
 //     with 3-dart average per player (confirmed via a real
-//     PDPA Players Championship 24 page, NOT just majors)
+//     PDPA Players Championship 24 page, NOT just majors, AND via a
+//     real fetch of the 2025 World Grand Prix event page — eid=25630 —
+//     which confirmed the same "PlayerName (avg) N V M PlayerName (avg)"
+//     shape holds for sets-format majors too, not just legs-format
+//     Pro Tour events)
+//   - tournament-history.php?tid=X&tna=... — full year-by-year winner
+//     history for a named tournament (confirmed via World Grand Prix,
+//     tid=14 — every edition from 1998-2025 listed with a working
+//     display-event.php?eid= link, except 2020 which is missing from
+//     the table for unknown reasons — worth checking directly if 2020
+//     data is ever needed)
 //
 // NOT YET CONFIRMED (structure below is a best-effort guess pending
 // a real fetch + verification, same as any new scraper — expect to
@@ -33,10 +43,32 @@ import * as path from 'path';
 import { logger } from '../../core/utils/logger';
 
 const BASE = 'https://www.dartsdatabase.co.uk';
-const HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
-  'Accept':     'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-};
+
+// ─── CLOUDFLARE BYPASS ────────────────────────────────────────────────────────
+// CONFIRMED this session: dartsdatabase.co.uk is behind Cloudflare's
+// interactive JS challenge (Turnstile) — a plain fetch() with a normal
+// browser User-Agent gets HTTP 403 with cf-mitigated: challenge and a
+// "Just a moment..." body, on BOTH player-profile-live.php AND
+// display-event.php. This contradicts the earlier "no Cloudflare/bot-
+// blocking" note at the top of this file — that confirmation was accurate
+// for whatever fetched it at the time, but is not holding for a plain
+// Node fetch() today.
+//
+// FIX: uses fetchViaDartsDatabase() from the new
+// src/scrapers/shared/dartsDatabaseFetch.ts — same manual-cookie-session
+// pattern already established in this codebase for soccerstats.com
+// (flareFetch.ts) and eliteprospects.com (eliteProspectsFetch.ts): a
+// human solves the Cloudflare challenge once in a real browser, the
+// resulting cf_clearance cookie + exact User-Agent get reused for plain
+// fetches until the cookie expires (~30-45 min, same as the other two
+// sites). See that file for the full mechanism, throttling, and
+// challenge-page detection.
+//
+// Set DARTSDATABASE_COOKIE (the raw cf_clearance token value ONLY — not
+// the full cookie string, not "cf_clearance=" prefix, just the token
+// itself) and DARTSDATABASE_UA (must exactly match whatever browser
+// solved the challenge) in .env before using any function in this file.
+import { fetchViaDartsDatabase } from '../shared/dartsDatabaseFetch';
 
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 
@@ -119,10 +151,15 @@ function writeCache<T>(prefix: string, key: string, data: T): void {
 
 // ─── HTTP HELPER ─────────────────────────────────────────────────────────────
 
+// fetchHtml() now just delegates to the shared per-site fetch file (see
+// import above) — throttling, Cloudflare challenge detection, and error
+// messaging all live there, matching how eliteprospects.com/
+// soccerstats.com are handled elsewhere in this codebase. Kept as a
+// thin wrapper (rather than calling fetchViaDartsDatabase directly at
+// every call site) so the rest of this file didn't need touching beyond
+// this one function.
 async function fetchHtml(url: string): Promise<string> {
-  const res = await fetch(url, { headers: HEADERS });
-  if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-  return res.text();
+  return fetchViaDartsDatabase(url);
 }
 
 // ─── NAME MATCHING (same pattern as fcStatsScraper) ──────────────────────────
@@ -223,13 +260,24 @@ export async function fetchPlayerStats(pid: string): Promise<DartsPlayerStats | 
 // is wired into the database.
 
 // ─── EVENT RESULTS ────────────────────────────────────────────────────────────
-// Confirmed structure from a real display-event.php page (PDPA Players
-// Championship 24, 07/07/2026): rows of
-//   "PlayerA (avg)   N V M   PlayerB (avg)"
-// e.g. "Mickey Mansell (91.61)  6 V 4  Mike de Decker (91.68)"
-// No round labels were visible in the pasted sample (flat "Last 128"
-// heading covers a whole round) — round is derived from section headers
-// like "Last 128", "Last 64" etc. if present, else null.
+// Confirmed structure from TWO real display-event.php pages:
+//   1. PDPA Players Championship 24 (07/07/2026, legs-format Pro Tour event):
+//      rows of "PlayerA (avg)   N V M   PlayerB (avg)"
+//      e.g. "Mickey Mansell (91.61)  6 V 4  Mike de Decker (91.68)"
+//      No round labels were visible in that pasted sample (flat "Last 128"
+//      heading covers a whole round).
+//   2. World Grand Prix 2025 (eid=25630, sets-format major): SAME row
+//      shape confirmed again — "Luke Humphries (87.64)  2 V 0  Nathan
+//      Aspinall (80.83)" — with round headers this time: "Last 32",
+//      "Last 16", "Quarter Final", "Semi Final", "Final". Confirms the
+//      match-row regex generalizes across both legs-format Pro Tour
+//      events AND sets-format majors without changes.
+//
+// ROUND HEADER FIX (this session): the real WGP page renders "Quarter
+// Final" / "Semi Final" — space, not hyphen, singular not plural — not
+// "Quarter-Finals" / "Semi-Finals" as originally assumed from the PC24
+// sample alone (which never reached those rounds in the pasted excerpt).
+// The regex below now accepts both stylings.
 
 export async function fetchEventResults(eventId: string, eventName: string = '', date: string = ''): Promise<DartsEventResults | null> {
   const cached = readCache<DartsEventResults>('event', eventId, EVENT_CACHE_TTL_MS);
@@ -242,33 +290,81 @@ export async function fetchEventResults(eventId: string, eventName: string = '',
     const url = `${BASE}/display-event.php?eid=${eventId}`;
     const html = await fetchHtml(url);
 
-    // Matches: "Player Name (##.##)  N V M  Player Name (##.##)"
-    const matchRegex = /([A-Za-zÀ-ÿ' .-]+?)\s*\(([\d.]+)\)\s*(\d+)\s*V\s*(\d+)\s*([A-Za-zÀ-ÿ' .-]+?)\s*\(([\d.]+)\)/g;
+    // REWRITTEN this session against REAL raw HTML (confirmed via a
+    // direct debug fetch of eid=25630 — the 2025 World Grand Prix page).
+    // The previous single-line regex assumed the shape
+    // "PlayerName (avg) N V M PlayerName (avg)" with no markup between
+    // any of those pieces — true of the RENDERED, tag-stripped text a
+    // browser shows, but NOT true of the raw HTML this scraper actually
+    // fetches. Real structure, confirmed:
+    //
+    //   <tr class="match-row">
+    //     <td ...><a href="player-profile-live.php?pid=11822" class="w3-text-orange">
+    //         Luke Humphries                    </a>
+    //       <br />(87.64)                </td>
+    //     <td ...>2&nbsp;V&nbsp;0                </td>
+    //     <td ...><a href="player-profile-live.php?pid=13326" class="w3-text-orange">
+    //         Nathan Aspinall                    </a>
+    //       <br />(80.83)                </td>
+    //   </tr>
+    //
+    // The old regex found ZERO matches against this real markup (5/5 WGP
+    // event pages fetched successfully but parsed 0 matches each) —
+    // this was a genuine parsing bug, not a Cloudflare/fetch problem.
+    //
+    // NOTE: this also confirms each player's dartsdatabase.co.uk pid is
+    // directly present in event page HTML (pid=11822, pid=13326 above).
+    // NOT currently captured into DartsMatchResult (would be a type/
+    // schema change affecting dartsMatchStore.ts and dartsBacktest.ts
+    // too) — flagged as a real future option (could reduce/eliminate
+    // manual PLAYER_ID_MAP maintenance by harvesting pids directly from
+    // scanned events) but deliberately out of scope for this fix.
+    const rowRegex = /<tr class="match-row">([\s\S]*?)<\/tr>/g;
+    const nameRegex = /class="w3-text-orange">\s*([^<]+?)\s*<\/a>/g;
+    const avgRegex = /\(([\d.]+)\)/g;
+    const scoreRegex = /(\d+)&nbsp;V&nbsp;(\d+)/;
+
+    // Round headers appear as plain visible text (e.g. "Last 32",
+    // "Quarter Final") somewhere in the surrounding markup — this part
+    // of the old logic is UNCHANGED and still valid, since a substring
+    // search doesn't care whether tags sit around the text it's looking
+    // for, unlike the old per-match regex which needed strict adjacency.
+    const roundHeaderRegex = /(Last \d+|Quarter[\s-]?Finals?|Semi[\s-]?Finals?|Final)/gi;
 
     const matches: DartsMatchResult[] = [];
-    let m;
-    let currentRound: string | null = null;
+    let rowMatch;
 
-    // Split by round headers (e.g. "Last 128", "Last 64", "Quarter-Finals")
-    // to tag matches with their round — best-effort, may need refinement
-    // once tested against a bracket that includes later rounds.
-    const roundHeaderRegex = /(Last \d+|Quarter-Finals?|Semi-Finals?|Final)/gi;
+    while ((rowMatch = rowRegex.exec(html)) !== null) {
+      const rowHtml = rowMatch[1];
 
-    while ((m = matchRegex.exec(html)) !== null) {
-      const [, p1, avg1, s1, s2, p2, avg2] = m;
+      const names = [...rowHtml.matchAll(nameRegex)].map(m => m[1].trim());
+      const avgs = [...rowHtml.matchAll(avgRegex)].map(m => parseFloat(m[1]));
+      const scoreMatch = scoreRegex.exec(rowHtml);
 
-      // find the nearest preceding round header
-      const precedingText = html.slice(0, m.index);
+      if (names.length < 2 || avgs.length < 2 || !scoreMatch) {
+        logger.debug('[DartsDB] Skipped a match-row block that did not have the expected 2 names / 2 averages / 1 score — markup may have a variant shape not yet seen', {
+          eventId,
+          namesFound: names.length,
+          avgsFound: avgs.length,
+          scoreFound: !!scoreMatch,
+          rowSnippet: rowHtml.slice(0, 1200),
+        });
+        continue;
+      }
+
+      // Round: find the nearest preceding round-header TEXT (not
+      // tag-anchored) before this row started in the full document.
+      const precedingText = html.slice(0, rowMatch.index);
       const roundMatches = [...precedingText.matchAll(roundHeaderRegex)];
-      currentRound = roundMatches.length ? roundMatches[roundMatches.length - 1][1] : null;
+      const currentRound = roundMatches.length ? roundMatches[roundMatches.length - 1][1] : null;
 
       matches.push({
-        player1: p1.trim(),
-        player2: p2.trim(),
-        player1Avg: parseFloat(avg1),
-        player2Avg: parseFloat(avg2),
-        player1Legs: parseInt(s1, 10),
-        player2Legs: parseInt(s2, 10),
+        player1: names[0],
+        player2: names[1],
+        player1Avg: avgs[0],
+        player2Avg: avgs[1],
+        player1Legs: parseInt(scoreMatch[1], 10),
+        player2Legs: parseInt(scoreMatch[2], 10),
         round: currentRound,
       });
     }
@@ -352,6 +448,33 @@ export async function fetchFixtures(dayOffset: number = 0): Promise<DartsFixture
     return [];
   }
 }
+
+// ─── TOURNAMENT HISTORY (winner list, all editions) ──────────────────────────
+// Confirmed structure from tournament-history.php?tid=14&tna=World%20Grand%20Prix
+// (World Grand Prix): one row per year, each with a working
+// display-event.php?eid=X&tna=...&eda=YYYY link plus winner/runner-up
+// pids and names. This is how historical eid values for a named
+// tournament are discovered — there's no need to guess or increment eid
+// numbers; this page lists them directly, going back to 1998 for WGP
+// (2020 missing from the table for unknown reasons — not investigated).
+//
+// NOT YET WIRED IN AS A LIVE FUNCTION — the eid values below were read
+// off this page manually this session for World Grand Prix specifically.
+// If other tournaments' historical eids are needed later, fetch their
+// own tid via the same tournament-history.php pattern (tid is specific
+// per tournament name, e.g. World Grand Prix = 14 — do not assume other
+// majors share nearby tid numbers without checking).
+export const WORLD_GRAND_PRIX_HISTORICAL_EIDS: { year: number; eid: string }[] = [
+  { year: 2025, eid: '25630' },
+  { year: 2024, eid: '25180' },
+  { year: 2023, eid: '25437' },
+  { year: 2022, eid: '25013' },
+  { year: 2021, eid: '24984' },
+  // Earlier editions exist back to 1998 (see tournament-history.php?tid=14)
+  // but player pools that far back are mostly retired/inactive — not
+  // included here since the current backtest scope is "recent enough to
+  // be relevant to today's PLAYER_ID_MAP", not "every edition ever".
+];
 
 // ─── PLAYER SEARCH — NOT VIABLE VIA PLAIN FETCH ──────────────────────────────
 // player-searcher.php's results render into <div id="player-results"></div>

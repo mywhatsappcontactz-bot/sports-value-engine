@@ -1,0 +1,8 @@
+async function run() {
+  const res = await fetch('https://www.tennisexplorer.com/matches/');
+  const html = await res.text();
+  const idx = html.indexOf('id="s10"');
+  console.log(html.slice(idx - 900, idx - 300));
+}
+
+run();

@@ -2,6 +2,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '../../core/utils/logger';
+import { fetchViaFlare } from '../shared/flareFetch';
 
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 
@@ -14,6 +15,13 @@ export interface CornerTeamStats {
   homeCornersAgainst: number;
   awayCornersFor: number;
   awayCornersAgainst: number;
+  // GP specific to the home/away split blocks, not the season total. A
+  // team can have plenty of overall `gp` while its home or away sample is
+  // still thin early in a season — callers should gate on these, not
+  // `gp`, before trusting homeCornersFor/awayCornersFor for anything
+  // venue-specific (e.g. the corners winner market).
+  homeGp: number;
+  awayGp: number;
 }
 
 export interface CornerLeagueData {
@@ -48,7 +56,19 @@ export const SOCCERSTATS_LEAGUE_MAP: Record<string, string> = {
   'Turkey': 'turkey',
   'Netherlands - Eredivisie': 'netherlands',
   'Scotland - Premiership': 'scotland',
-  // 'Belgium': 'belgium', // confirmed code correct but 0 corners data — season not yet started
+  'Belgium': 'belgium',
+  'Russia Premier League': 'russia',
+  'Poland Ekstraklasa': 'poland',
+  
+  // Switzerland's "0 corners data" note (previously attached here) was based
+  // on an earlier test that predates the fixtures-parser fix in
+  // soccerStatsFallbackFixturesScraper.ts — we now know Switzerland has real
+  // upcoming fixtures from Aug 8 onward, so that old assumption shouldn't be
+  // trusted without re-testing this page (table.asp) specifically, since it's
+  // a different endpoint/parser than the fixtures one that was fixed.
+  'Switzerland Super League': 'switzerland',
+  'Ukraine Premier League': 'ukraine',
+  'MLS': 'usa',
   // UNCONFIRMED — verify before use:
   // 'Veikkausliiga - Finland': 'finland',   // seen in nav, not independently fetched
   // 'Eliteserien - Norway': 'norway',       // seen in nav, not independently fetched
@@ -110,10 +130,7 @@ function writeCornersCache(leagueName: string, data: CornerLeagueData): void {
 
 const BASE = 'https://www.soccerstats.com';
 
-const HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
-  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-};
+
 
 function normalize(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
@@ -146,9 +163,7 @@ function similarity(a: string, b: string): number {
 }
 
 async function fetchHtml(url: string): Promise<string> {
-  const res = await fetch(url, { headers: HEADERS });
-  if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-  return res.text();
+  return fetchViaFlare(url);
 }
 
 // ─── PARSER ──────────────────────────────────────────────────────────────────
@@ -237,6 +252,16 @@ function parseCornersPage(html: string): Map<string, CornerTeamStats> {
       homeCornersAgainst: h?.cornersAgainst ?? 0,
       awayCornersFor: a?.cornersFor ?? 0,
       awayCornersAgainst: a?.cornersAgainst ?? 0,
+      // Previously these were parsed (parseRows already extracts `gp` from
+      // every block, home/away included) but then discarded — only
+      // `t.gp` (the season total) ever made it onto CornerTeamStats. That
+      // meant there was no way to tell a team with a solid overall sample
+      // from one with, say, only 3 home matches played so far this
+      // season. Now captured explicitly so callers (e.g. the corners
+      // winner market) can gate on venue-specific sample size instead of
+      // blindly trusting homeCornersFor/awayCornersFor early in a season.
+      homeGp: h?.gp ?? 0,
+      awayGp: a?.gp ?? 0,
     });
   }
 

@@ -1,0 +1,26 @@
+{
+  "floor_55": {
+    "bets": 7097,
+    "winPct": 62.8,
+    "avgOdds": 1.968,
+    "roiPct": 21.8
+  },
+  "floor_60": {
+    "bets": 1516,
+    "winPct": 65.6,
+    "avgOdds": 1.892,
+    "roiPct": 22
+  },
+  "floor_65": {
+    "bets": 1037,
+    "winPct": 66.6,
+    "avgOdds": 1.867,
+    "roiPct": 22.3
+  },
+  "floor_70": {
+    "bets": 343,
+    "winPct": 68.8,
+    "avgOdds": 1.823,
+    "roiPct": 23.6
+  }
+}

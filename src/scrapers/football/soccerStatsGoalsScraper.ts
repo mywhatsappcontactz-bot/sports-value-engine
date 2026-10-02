@@ -17,6 +17,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '../../core/utils/logger';
+import { fetchViaFlare } from '../shared/flareFetch';
 
 
 
@@ -27,6 +28,7 @@ export const SOCCERSTATS_LEAGUE_MAP: Record<string, string> = {
   'germany2': 'germany2',
   'turkey': 'turkey',
   'netherlands': 'netherlands',
+  'MLS': 'usa',
 };
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 
@@ -94,15 +96,8 @@ function writeGoalsCache(leagueCode: string, teams: TeamGoalsSplit[]): void {
 
 const BASE = 'https://www.soccerstats.com';
 
-const HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
-  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-};
-
 async function fetchHtml(url: string): Promise<string> {
-  const res = await fetch(url, { headers: HEADERS });
-  if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-  return res.text();
+  return fetchViaFlare(url);
 }
 
 /**

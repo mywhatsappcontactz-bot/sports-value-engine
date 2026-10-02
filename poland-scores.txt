@@ -1,0 +1,69 @@
+﻿
+> poland-latest.html:2136:<meta name="keywords" content="Poland - 
+Ekstraklasa, football, results, stats, league table, form table, scores, 
+standings" />
+  poland-latest.html:2137:
+  poland-latest.html:2138:<meta name="description" content="Poland - 
+Ekstraklasa league table, results, statistics, current form, ladder and 
+standings. Display Polish Ekstraklasa table and statistics." />
+  poland-latest.html:2139:
+  poland-latest.html:2140:<meta property="og:locale" content="en_GB" />
+  poland-latest.html:2141:<meta property="og:site_name" 
+content="SoccerSTATS.com" />
+  poland-latest.html:2142:<meta property="og:title" content="Poland - 
+Ekstraklasa table, stats, form and results | SoccerSTATS.com" />
+  poland-latest.html:2143:<meta property="og:type" content="article" />
+  poland-latest.html:2144:<meta property="og:image" 
+content="https://www.soccerstats.com/img/own/sshp/sshp_220x116.png" />
+  poland-latest.html:2145:<meta property="og:image:type" 
+content="image/png" />
+  poland-latest.html:2146:<meta property="og:image:width" content="200" 
+/>
+  poland-latest.html:2147:<meta property="og:image:height" content="116" 
+/>
+  poland-latest.html:2148:<meta property="og:image:alt" 
+content="SoccerSTATS.com: football statistics and results" />
+  poland-latest.html:2149:
+  poland-latest.html:2150:<meta name="twitter:card" 
+content="summary_large_image">
+  poland-latest.html:2151:<meta name="twitter:site" 
+content="@soccerstatscom" />
+  poland-latest.html:2152:<meta name="twitter:title" content="Poland - 
+Ekstraklasa table, stats, form and results | SoccerSTATS.com" />
+  poland-latest.html:2153:<meta name="twitter:domain" 
+content="soccerstats.com" />
+  poland-latest.html:2154:
+  poland-latest.html:2155:
+  poland-latest.html:2156:<meta property="article:tag" content="Poland - 
+Ekstraklasa" />
+  poland-latest.html:2157:
+  poland-latest.html:2158:<meta property="article:section" 
+content="League summaries" />
+  poland-latest.html:2159:
+  poland-latest.html:2160:<meta property="og:description" 
+content="Poland - Ekstraklasa league table, results, statistics, current 
+form, ladder and standings. Display Polish Ekstraklasa table and 
+statistics." />
+  poland-latest.html:2161:
+  poland-latest.html:2162:<meta property="og:url" 
+content="https://www.soccerstats.com/latest.asp?league=poland" />
+  poland-latest.html:2163:<link rel="canonical" 
+href="https://www.soccerstats.com/latest.asp?league=poland" />
+  poland-latest.html:2164:
+  poland-latest.html:2165:
+  poland-latest.html:2166:
+  poland-latest.html:2167:<link rel="apple-touch-icon" sizes="180x180" 
+href="/apple-touch-icon.png">
+  poland-latest.html:2168:<link rel="icon" type="image/png" 
+sizes="32x32" href="/favicon-32x32.png">
+  poland-latest.html:2169:<link rel="icon" type="image/png" 
+sizes="16x16" href="/favicon-16x16.png">
+  poland-latest.html:2170:
+  poland-latest.html:2171:
+  poland-latest.html:2172:<link rel="manifest" href="/manifest.json">
+  poland-latest.html:2173:
+  poland-latest.html:2174:
+  poland-latest.html:2175:
+  poland-latest.html:2176:
+
+

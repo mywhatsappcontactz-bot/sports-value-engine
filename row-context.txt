@@ -1,0 +1,49 @@
+﻿
+  team-page.html:3728:<br>
+  team-page.html:3729:<b>2-0</b>&nbsp;&nbsp;
+  team-page.html:3730:<font color='#000000'>J. Magn�sson (65)</font>
+  team-page.html:3731:
+  team-page.html:3732:</font>
+  team-page.html:3733:</div>
+  team-page.html:3734:</span>
+  team-page.html:3735:</a>
+  team-page.html:3736:</td>
+  team-page.html:3737:
+  team-page.html:3738:<td align='left' style='padding-left:4px;'>
+  team-page.html:3739:<b>
+  team-page.html:3740:IFK Goteborg 
+  team-page.html:3741:</b>
+  team-page.html:3742:
+  team-page.html:3743:</td>
+  team-page.html:3744:
+  team-page.html:3745:
+  team-page.html:3746:<td align='center'>
+  team-page.html:3747:-
+  team-page.html:3748:
+  team-page.html:3749:</td>
+  team-page.html:3750:
+  team-page.html:3751:
+  team-page.html:3752:<td align='center'>
+  team-page.html:3753:-
+  team-page.html:3754:
+  team-page.html:3755:</td>
+  team-page.html:3756:
+  team-page.html:3757:
+  team-page.html:3758:<td align='center'>
+  team-page.html:3759:+
+  team-page.html:3760:
+  team-page.html:3761:</td>
+  team-page.html:3762:
+  team-page.html:3763:<td align='center'>
+  team-page.html:3764:0-0
+  team-page.html:3765:</td>
+  team-page.html:3766:
+  team-page.html:3767:<td align='center'>
+> team-page.html:3768:<a class='SmallButton' 
+href='pmatch.asp?league=sweden&stats=6-11-12-2026' title='Elfsborg vs IFK 
+Goteborg' target='_top'><img src='img/own/sshplogo.png' 
+style='padding-left:0px;padding-right:0px;padding-top:3px;'></a>
+  team-page.html:3769:</td>
+  team-page.html:3770:</tr>
+
+

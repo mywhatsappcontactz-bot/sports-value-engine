@@ -1,0 +1,1201 @@
+﻿
+  team-page.html:3678:</td></tr>
+  team-page.html:3679:</table>
+  team-page.html:3680:
+  team-page.html:3681:<br><br>
+  team-page.html:3682:
+  team-page.html:3683:<br><br><br>
+  team-page.html:3684:<h2 
+style='padding-bottom:8px;text-align:left;'>Results</h2>
+  team-page.html:3685:<table cellspacing='0' cellpadding='0' 
+bgcolor='#cccccc' width='100%'>
+  team-page.html:3686:
+  team-page.html:3687:<tr bgcolor='#666666' height='22'>
+  team-page.html:3688:<td colspan='4'>
+  team-page.html:3689:                      
+  team-page.html:3690:</td>
+  team-page.html:3691:<td align='center'><span title='
+  team-page.html:3692:over (+) or under (-) 2.5 goals in total
+  team-page.html:3693:'><font style='color:#fafafa;size:11px;'>
+  team-page.html:3694:2.5+
+  team-page.html:3695:</font></span></td><td align='center'><span title='
+  team-page.html:3696:Clean Sheet: team did not concede any goal
+  team-page.html:3697:'><font 
+style='color:#fafafa;size:11px;'>CS</font></span></td><td 
+align='center'><span title='Failed to Score: team did not score'>
+  team-page.html:3698:<font 
+style='color:#fafafa;size:11px;'>FTS</font></td>
+  team-page.html:3699:<td align='center'><span title='Half-time 
+score'><font style='color:#fafafa;size:11px;'>HT</font></td>
+  team-page.html:3700:<td></td>
+  team-page.html:3701:</tr>
+  team-page.html:3702:
+  team-page.html:3703:<tr bgcolor='#ffbaba' height='38'>
+  team-page.html:3704:<td align='right'><font 
+style='font-size:11px;color:#444444;'>
+  team-page.html:3705:6 Apr
+  team-page.html:3706:</font>
+  team-page.html:3707:
+  team-page.html:3708:</td>
+  team-page.html:3709:<td align='right' style='padding-right:4px;'>
+  team-page.html:3710: Elfsborg
+  team-page.html:3711:
+  team-page.html:3712:</td>
+  team-page.html:3713:
+  team-page.html:3714:<td align='center' width='46'>
+  team-page.html:3715:<a href='#m6' class='tooltip4' 
+style='background-color:#f8f8f8;'>
+  team-page.html:3716:<font 
+style='color:blue;font-size:14px;font-family:monospace;'><b>2:0</b></font>
+  team-page.html:3717:<span style='width:350px;'>
+  team-page.html:3718:<div 
+style='text-align:left;font-size:13px;line-height:16px;padding:10px;'>
+  team-page.html:3719:<br>
+  team-page.html:3720:---------------------------------------
+  team-page.html:3721:<font style='color:#000000;'>
+  team-page.html:3722:<br>
+  team-page.html:3723:<b>1-0</b>&nbsp;&nbsp;
+  team-page.html:3724:<font color='#000000'>T. Silverholt (59)</font>
+  team-page.html:3725:
+  team-page.html:3726:</font>
+  team-page.html:3727:<font style='color:#000000;'>
+  team-page.html:3728:<br>
+  team-page.html:3729:<b>2-0</b>&nbsp;&nbsp;
+  team-page.html:3730:<font color='#000000'>J. Magn�sson (65)</font>
+  team-page.html:3731:
+  team-page.html:3732:</font>
+  team-page.html:3733:</div>
+  team-page.html:3734:</span>
+  team-page.html:3735:</a>
+  team-page.html:3736:</td>
+  team-page.html:3737:
+  team-page.html:3738:<td align='left' style='padding-left:4px;'>
+  team-page.html:3739:<b>
+  team-page.html:3740:IFK Goteborg 
+  team-page.html:3741:</b>
+  team-page.html:3742:
+  team-page.html:3743:</td>
+  team-page.html:3744:
+  team-page.html:3745:
+  team-page.html:3746:<td align='center'>
+  team-page.html:3747:-
+  team-page.html:3748:
+  team-page.html:3749:</td>
+  team-page.html:3750:
+  team-page.html:3751:
+  team-page.html:3752:<td align='center'>
+  team-page.html:3753:-
+  team-page.html:3754:
+  team-page.html:3755:</td>
+  team-page.html:3756:
+  team-page.html:3757:
+  team-page.html:3758:<td align='center'>
+  team-page.html:3759:+
+  team-page.html:3760:
+  team-page.html:3761:</td>
+  team-page.html:3762:
+  team-page.html:3763:<td align='center'>
+  team-page.html:3764:0-0
+  team-page.html:3765:</td>
+  team-page.html:3766:
+  team-page.html:3767:<td align='center'>
+> team-page.html:3768:<a class='SmallButton' 
+href='pmatch.asp?league=sweden&stats=6-11-12-2026' title='Elfsborg vs IFK 
+Goteborg' target='_top'><img src='img/own/sshplogo.png' 
+style='padding-left:0px;padding-right:0px;padding-top:3px;'></a>
+  team-page.html:3769:</td>
+  team-page.html:3770:</tr>
+  team-page.html:3771:<tr bgcolor='#ffbaba' height='38'>
+  team-page.html:3772:<td align='right'><font 
+style='font-size:11px;color:#444444;'>
+  team-page.html:3773:11 Apr
+  team-page.html:3774:</font>
+  team-page.html:3775:
+  team-page.html:3776:</td>
+  team-page.html:3777:<td align='right' style='padding-right:4px;'>
+  team-page.html:3778:<b>
+  team-page.html:3779: IFK Goteborg
+  team-page.html:3780:</b>
+  team-page.html:3781:
+  team-page.html:3782:</td>
+  team-page.html:3783:
+  team-page.html:3784:<td align='center' width='46'>
+  team-page.html:3785:<a href='#m11' class='tooltip4' 
+style='background-color:#f8f8f8;'>
+  team-page.html:3786:<font 
+style='color:blue;font-size:14px;font-family:monospace;'><b>0:2</b></font>
+  team-page.html:3787:<span style='width:350px;'>
+  team-page.html:3788:<div 
+style='text-align:left;font-size:13px;line-height:16px;padding:10px;'>
+  team-page.html:3789:<font style='color:#000000;'>
+  team-page.html:3790:<br>&nbsp;&nbsp;&nbsp;&nbsp;
+  team-page.html:3791:<b>0-1</b>&nbsp;&nbsp;
+  team-page.html:3792:
+  team-page.html:3793:<font color='#000000'>G. Lindgren (17)</font>
+  team-page.html:3794:</font>
+  team-page.html:3795:<br>
+  team-page.html:3796:---------------------------------------
+  team-page.html:3797:<font style='color:#000000;'>
+  team-page.html:3798:<br>&nbsp;&nbsp;&nbsp;&nbsp;
+  team-page.html:3799:<b>0-2</b>&nbsp;&nbsp;
+  team-page.html:3800:
+  team-page.html:3801:<font color='#000000'>Mikkel Rygaard (84)</font>
+  team-page.html:3802:</font>
+  team-page.html:3803:</div>
+  team-page.html:3804:</span>
+  team-page.html:3805:</a>
+  team-page.html:3806:</td>
+  team-page.html:3807:
+  team-page.html:3808:<td align='left' style='padding-left:4px;'>
+  team-page.html:3809:Hacken 
+  team-page.html:3810:
+  team-page.html:3811:</td>
+  team-page.html:3812:
+  team-page.html:3813:
+  team-page.html:3814:<td align='center'>
+  team-page.html:3815:-
+  team-page.html:3816:
+  team-page.html:3817:</td>
+  team-page.html:3818:
+  team-page.html:3819:
+  team-page.html:3820:<td align='center'>
+  team-page.html:3821:-
+  team-page.html:3822:
+  team-page.html:3823:</td>
+  team-page.html:3824:
+  team-page.html:3825:
+  team-page.html:3826:<td align='center'>
+  team-page.html:3827:+
+  team-page.html:3828:
+  team-page.html:3829:</td>
+  team-page.html:3830:
+  team-page.html:3831:<td align='center'>
+  team-page.html:3832:0-1
+  team-page.html:3833:</td>
+  team-page.html:3834:
+  team-page.html:3835:<td align='center'>
+> team-page.html:3836:<a class='SmallButton' 
+href='pmatch.asp?league=sweden&stats=11-12-13-2026' title='IFK Goteborg 
+vs Hacken' target='_top'><img src='img/own/sshplogo.png' 
+style='padding-left:0px;padding-right:0px;padding-top:3px;'></a>
+  team-page.html:3837:</td>
+  team-page.html:3838:</tr>
+  team-page.html:3839:<tr bgcolor='#FFFFBF' height='38'>
+  team-page.html:3840:<td align='right'><font 
+style='font-size:11px;color:#444444;'>
+  team-page.html:3841:18 Apr
+  team-page.html:3842:</font>
+  team-page.html:3843:
+  team-page.html:3844:</td>
+  team-page.html:3845:<td align='right' style='padding-right:4px;'>
+  team-page.html:3846: Halmstad
+  team-page.html:3847:
+  team-page.html:3848:</td>
+  team-page.html:3849:
+  team-page.html:3850:<td align='center' width='46'>
+  team-page.html:3851:<a href='#m19' class='tooltip4' 
+style='background-color:#f8f8f8;'>
+  team-page.html:3852:<font 
+style='color:blue;font-size:14px;font-family:monospace;'><b>1:1</b></font>
+  team-page.html:3853:<span style='width:350px;'>
+  team-page.html:3854:<div 
+style='text-align:left;font-size:13px;line-height:16px;padding:10px;'>
+  team-page.html:3855:<br>
+  team-page.html:3856:---------------------------------------
+  team-page.html:3857:<font style='color:#000000;'>
+  team-page.html:3858:<br>
+  team-page.html:3859:<b>1-0</b>&nbsp;&nbsp;
+  team-page.html:3860:<font color='#000000'>Omar Faraj (62)</font>
+  team-page.html:3861:
+  team-page.html:3862:</font>
+  team-page.html:3863:<font style='color:#000000;'>
+  team-page.html:3864:<br>&nbsp;&nbsp;&nbsp;&nbsp;
+  team-page.html:3865:<b>1-1</b>&nbsp;&nbsp;
+  team-page.html:3866:
+  team-page.html:3867:<font color='#000000'>Tobias Heintz (64)</font>
+  team-page.html:3868:</font>
+  team-page.html:3869:</div>
+  team-page.html:3870:</span>
+  team-page.html:3871:</a>
+  team-page.html:3872:</td>
+  team-page.html:3873:
+  team-page.html:3874:<td align='left' style='padding-left:4px;'>
+  team-page.html:3875:<b>
+  team-page.html:3876:IFK Goteborg 
+  team-page.html:3877:</b>
+  team-page.html:3878:
+  team-page.html:3879:</td>
+  team-page.html:3880:
+  team-page.html:3881:
+  team-page.html:3882:<td align='center'>
+  team-page.html:3883:-
+  team-page.html:3884:
+  team-page.html:3885:</td>
+  team-page.html:3886:
+  team-page.html:3887:
+  team-page.html:3888:<td align='center'>
+  team-page.html:3889:-
+  team-page.html:3890:
+  team-page.html:3891:</td>
+  team-page.html:3892:
+  team-page.html:3893:
+  team-page.html:3894:<td align='center'>
+  team-page.html:3895:-
+  team-page.html:3896:
+  team-page.html:3897:</td>
+  team-page.html:3898:
+  team-page.html:3899:<td align='center'>
+  team-page.html:3900:0-0
+  team-page.html:3901:</td>
+  team-page.html:3902:
+  team-page.html:3903:<td align='center'>
+> team-page.html:3904:<a class='SmallButton' 
+href='pmatch.asp?league=sweden&stats=19-8-12-2026' title='Halmstad vs IFK 
+Goteborg' target='_top'><img src='img/own/sshplogo.png' 
+style='padding-left:0px;padding-right:0px;padding-top:3px;'></a>
+  team-page.html:3905:</td>
+  team-page.html:3906:</tr>
+  team-page.html:3907:<tr bgcolor='#FFFFBF' height='38'>
+  team-page.html:3908:<td align='right'><font 
+style='font-size:11px;color:#444444;'>
+  team-page.html:3909:23 Apr
+  team-page.html:3910:</font>
+  team-page.html:3911:
+  team-page.html:3912:</td>
+  team-page.html:3913:<td align='right' style='padding-right:4px;'>
+  team-page.html:3914: Kalmar
+  team-page.html:3915:
+  team-page.html:3916:</td>
+  team-page.html:3917:
+  team-page.html:3918:<td align='center' width='46'>
+  team-page.html:3919:<a href='#m29' class='tooltip4' 
+style='background-color:#f8f8f8;'>
+  team-page.html:3920:<font 
+style='color:blue;font-size:14px;font-family:monospace;'><b>1:1</b></font>
+  team-page.html:3921:<span style='width:350px;'>
+  team-page.html:3922:<div 
+style='text-align:left;font-size:13px;line-height:16px;padding:10px;'>
+  team-page.html:3923:<font style='color:#000000;'>
+  team-page.html:3924:<br>
+  team-page.html:3925:<b>1-0</b>&nbsp;&nbsp;
+  team-page.html:3926:<font color='#000000'>C. Rosenquist (29)</font>
+  team-page.html:3927:
+  team-page.html:3928:</font>
+  team-page.html:3929:<font style='color:#000000;'>
+  team-page.html:3930:<br>&nbsp;&nbsp;&nbsp;&nbsp;
+  team-page.html:3931:<b>1-1</b>&nbsp;&nbsp;
+  team-page.html:3932:
+  team-page.html:3933:<font color='#000000'>Tobias Heintz (45)</font>
+  team-page.html:3934:</font>
+  team-page.html:3935:<br>
+  team-page.html:3936:</div>
+  team-page.html:3937:</span>
+  team-page.html:3938:</a>
+  team-page.html:3939:</td>
+  team-page.html:3940:
+  team-page.html:3941:<td align='left' style='padding-left:4px;'>
+  team-page.html:3942:<b>
+  team-page.html:3943:IFK Goteborg 
+  team-page.html:3944:</b>
+  team-page.html:3945:
+  team-page.html:3946:</td>
+  team-page.html:3947:
+  team-page.html:3948:
+  team-page.html:3949:<td align='center'>
+  team-page.html:3950:-
+  team-page.html:3951:
+  team-page.html:3952:</td>
+  team-page.html:3953:
+  team-page.html:3954:
+  team-page.html:3955:<td align='center'>
+  team-page.html:3956:-
+  team-page.html:3957:
+  team-page.html:3958:</td>
+  team-page.html:3959:
+  team-page.html:3960:
+  team-page.html:3961:<td align='center'>
+  team-page.html:3962:-
+  team-page.html:3963:
+  team-page.html:3964:</td>
+  team-page.html:3965:
+  team-page.html:3966:<td align='center'>
+  team-page.html:3967:1-1
+  team-page.html:3968:</td>
+  team-page.html:3969:
+  team-page.html:3970:<td align='center'>
+> team-page.html:3971:<a class='SmallButton' 
+href='pmatch.asp?league=sweden&stats=29-5-12-2026' title='Kalmar vs IFK 
+Goteborg' target='_top'><img src='img/own/sshplogo.png' 
+style='padding-left:0px;padding-right:0px;padding-top:3px;'></a>
+  team-page.html:3972:</td>
+  team-page.html:3973:</tr>
+  team-page.html:3974:<tr bgcolor='#FFFFBF' height='38'>
+  team-page.html:3975:<td align='right'><font 
+style='font-size:11px;color:#444444;'>
+  team-page.html:3976:26 Apr
+  team-page.html:3977:</font>
+  team-page.html:3978:
+  team-page.html:3979:</td>
+  team-page.html:3980:<td align='right' style='padding-right:4px;'>
+  team-page.html:3981:<b>
+  team-page.html:3982: IFK Goteborg
+  team-page.html:3983:</b>
+  team-page.html:3984:
+  team-page.html:3985:</td>
+  team-page.html:3986:
+  team-page.html:3987:<td align='center' width='46'>
+  team-page.html:3988:<a href='#m35' class='tooltip4' 
+style='background-color:#f8f8f8;'>
+  team-page.html:3989:<font 
+style='color:blue;font-size:14px;font-family:monospace;'><b>2:2</b></font>
+  team-page.html:3990:<span style='width:350px;'>
+  team-page.html:3991:<div 
+style='text-align:left;font-size:13px;line-height:16px;padding:10px;'>
+  team-page.html:3992:<font style='color:#000000;'>
+  team-page.html:3993:<br>
+  team-page.html:3994:<b>1-0</b>&nbsp;&nbsp;
+  team-page.html:3995:<font color='#000000'>Rockson Yeboah (25)</font>
+  team-page.html:3996:
+  team-page.html:3997:</font>
+  team-page.html:3998:<br>
+  team-page.html:3999:---------------------------------------
+  team-page.html:4000:<font style='color:#000000;'>
+  team-page.html:4001:<br>&nbsp;&nbsp;&nbsp;&nbsp;
+  team-page.html:4002:<b>1-1</b>&nbsp;&nbsp;
+  team-page.html:4003:
+  team-page.html:4004:<font color='#000000'>M. Andersson (63)</font>
+  team-page.html:4005:</font>
+  team-page.html:4006:<font style='color:#000000;'>
+  team-page.html:4007:<br>&nbsp;&nbsp;&nbsp;&nbsp;
+  team-page.html:4008:<b>1-2</b>&nbsp;&nbsp;
+  team-page.html:4009:
+  team-page.html:4010:<font color='#000000'>William Milovanovic 
+(69)</font>
+  team-page.html:4011:</font>
+  team-page.html:4012:<font style='color:#000000;'>
+  team-page.html:4013:<br>
+  team-page.html:4014:<b>2-2</b>&nbsp;&nbsp;
+  team-page.html:4015:<font color='#000000'>David Kruse (72)</font>
+  team-page.html:4016:
+  team-page.html:4017:</font>
+  team-page.html:4018:</div>
+  team-page.html:4019:</span>
+  team-page.html:4020:</a>
+  team-page.html:4021:</td>
+  team-page.html:4022:
+  team-page.html:4023:<td align='left' style='padding-left:4px;'>
+  team-page.html:4024:GAIS 
+  team-page.html:4025:
+  team-page.html:4026:</td>
+  team-page.html:4027:
+  team-page.html:4028:
+  team-page.html:4029:<td align='center'>
+  team-page.html:4030:+
+  team-page.html:4031:
+  team-page.html:4032:</td>
+  team-page.html:4033:
+  team-page.html:4034:
+  team-page.html:4035:<td align='center'>
+  team-page.html:4036:-
+  team-page.html:4037:
+  team-page.html:4038:</td>
+  team-page.html:4039:
+  team-page.html:4040:
+  team-page.html:4041:<td align='center'>
+  team-page.html:4042:-
+  team-page.html:4043:
+  team-page.html:4044:</td>
+  team-page.html:4045:
+  team-page.html:4046:<td align='center'>
+  team-page.html:4047:1-0
+  team-page.html:4048:</td>
+  team-page.html:4049:
+  team-page.html:4050:<td align='center'>
+> team-page.html:4051:<a class='SmallButton' 
+href='pmatch.asp?league=sweden&stats=35-12-15-2026' title='IFK Goteborg 
+vs GAIS' target='_top'><img src='img/own/sshplogo.png' 
+style='padding-left:0px;padding-right:0px;padding-top:3px;'></a>
+  team-page.html:4052:</td>
+  team-page.html:4053:</tr>
+  team-page.html:4054:<tr bgcolor='#ffbaba' height='38'>
+  team-page.html:4055:<td align='right'><font 
+style='font-size:11px;color:#444444;'>
+  team-page.html:4056:4 May
+  team-page.html:4057:</font>
+  team-page.html:4058:
+  team-page.html:4059:</td>
+  team-page.html:4060:<td align='right' style='padding-right:4px;'>
+  team-page.html:4061: Djurgarden
+  team-page.html:4062:
+  team-page.html:4063:</td>
+  team-page.html:4064:
+  team-page.html:4065:<td align='center' width='46'>
+  team-page.html:4066:<a href='#m48' class='tooltip4' 
+style='background-color:#f8f8f8;'>
+  team-page.html:4067:<font 
+style='color:blue;font-size:14px;font-family:monospace;'><b>6:0</b></font>
+  team-page.html:4068:<span style='width:350px;'>
+  team-page.html:4069:<div 
+style='text-align:left;font-size:13px;line-height:16px;padding:10px;'>
+  team-page.html:4070:<font style='color:#000000;'>
+  team-page.html:4071:<br>
+  team-page.html:4072:<b>1-0</b>&nbsp;&nbsp;
+  team-page.html:4073:<font color='#000000'>Jeppe Okkels (15)</font>
+  team-page.html:4074:
+  team-page.html:4075:</font>
+  team-page.html:4076:<font style='color:#000000;'>
+  team-page.html:4077:<br>
+  team-page.html:4078:<b>2-0</b>&nbsp;&nbsp;
+  team-page.html:4079:<font color='#000000'>Patric �slund (31)</font>
+  team-page.html:4080:
+  team-page.html:4081:</font>
+  team-page.html:4082:<font style='color:#000000;'>
+  team-page.html:4083:<br>
+  team-page.html:4084:<b>3-0</b>&nbsp;&nbsp;
+  team-page.html:4085:<font color='#000000'>K. Lien (34)</font>
+  team-page.html:4086:
+  team-page.html:4087:</font>
+  team-page.html:4088:<br>
+  team-page.html:4089:---------------------------------------
+  team-page.html:4090:<font style='color:#000000;'>
+  team-page.html:4091:<br>
+  team-page.html:4092:<b>4-0</b>&nbsp;&nbsp;
+  team-page.html:4093:<font color='#000000'>Patric �slund (62)</font>
+  team-page.html:4094:
+  team-page.html:4095:</font>
+  team-page.html:4096:<font style='color:#000000;'>
+  team-page.html:4097:<br>
+  team-page.html:4098:<b>5-0</b>&nbsp;&nbsp;
+  team-page.html:4099:<font color='#000000'>Joel Asoro (81)</font>
+  team-page.html:4100:
+  team-page.html:4101:</font>
+  team-page.html:4102:<font style='color:#000000;'>
+  team-page.html:4103:<br>
+  team-page.html:4104:<b>6-0</b>&nbsp;&nbsp;
+  team-page.html:4105:<font color='#000000'>Joel Asoro (90)</font>
+  team-page.html:4106:
+  team-page.html:4107:</font>
+  team-page.html:4108:</div>
+  team-page.html:4109:</span>
+  team-page.html:4110:</a>
+  team-page.html:4111:</td>
+  team-page.html:4112:
+  team-page.html:4113:<td align='left' style='padding-left:4px;'>
+  team-page.html:4114:<b>
+  team-page.html:4115:IFK Goteborg 
+  team-page.html:4116:</b>
+  team-page.html:4117:
+  team-page.html:4118:</td>
+  team-page.html:4119:
+  team-page.html:4120:
+  team-page.html:4121:<td align='center'>
+  team-page.html:4122:+
+  team-page.html:4123:
+  team-page.html:4124:</td>
+  team-page.html:4125:
+  team-page.html:4126:
+  team-page.html:4127:<td align='center'>
+  team-page.html:4128:-
+  team-page.html:4129:
+  team-page.html:4130:</td>
+  team-page.html:4131:
+  team-page.html:4132:
+  team-page.html:4133:<td align='center'>
+  team-page.html:4134:+
+  team-page.html:4135:
+  team-page.html:4136:</td>
+  team-page.html:4137:
+  team-page.html:4138:<td align='center'>
+  team-page.html:4139:3-0
+  team-page.html:4140:</td>
+  team-page.html:4141:
+  team-page.html:4142:<td align='center'>
+> team-page.html:4143:<a class='SmallButton' 
+href='pmatch.asp?league=sweden&stats=48-16-12-2026' title='Djurgarden vs 
+IFK Goteborg' target='_top'><img src='img/own/sshplogo.png' 
+style='padding-left:0px;padding-right:0px;padding-top:3px;'></a>
+  team-page.html:4144:</td>
+  team-page.html:4145:</tr>
+  team-page.html:4146:<tr bgcolor='#ffbaba' height='38'>
+  team-page.html:4147:<td align='right'><font 
+style='font-size:11px;color:#444444;'>
+  team-page.html:4148:9 May
+  team-page.html:4149:</font>
+  team-page.html:4150:
+  team-page.html:4151:</td>
+  team-page.html:4152:<td align='right' style='padding-right:4px;'>
+  team-page.html:4153:<b>
+  team-page.html:4154: IFK Goteborg
+  team-page.html:4155:</b>
+  team-page.html:4156:
+  team-page.html:4157:</td>
+  team-page.html:4158:
+  team-page.html:4159:<td align='center' width='46'>
+  team-page.html:4160:<a href='#m56' class='tooltip4' 
+style='background-color:#f8f8f8;'>
+  team-page.html:4161:<font 
+style='color:blue;font-size:14px;font-family:monospace;'><b>0:1</b></font>
+  team-page.html:4162:<span style='width:350px;'>
+  team-page.html:4163:<div 
+style='text-align:left;font-size:13px;line-height:16px;padding:10px;'>
+  team-page.html:4164:<br>
+  team-page.html:4165:---------------------------------------
+  team-page.html:4166:<font style='color:#000000;'>
+  team-page.html:4167:<br>&nbsp;&nbsp;&nbsp;&nbsp;
+  team-page.html:4168:<b>0-1</b>&nbsp;&nbsp;
+  team-page.html:4169:
+  team-page.html:4170:<font color='#000000'>Victor Eriksson (90)</font>
+  team-page.html:4171:</font>
+  team-page.html:4172:</div>
+  team-page.html:4173:</span>
+  team-page.html:4174:</a>
+  team-page.html:4175:</td>
+  team-page.html:4176:
+  team-page.html:4177:<td align='left' style='padding-left:4px;'>
+  team-page.html:4178:Hammarby 
+  team-page.html:4179:
+  team-page.html:4180:</td>
+  team-page.html:4181:
+  team-page.html:4182:
+  team-page.html:4183:<td align='center'>
+  team-page.html:4184:-
+  team-page.html:4185:
+  team-page.html:4186:</td>
+  team-page.html:4187:
+  team-page.html:4188:
+  team-page.html:4189:<td align='center'>
+  team-page.html:4190:-
+  team-page.html:4191:
+  team-page.html:4192:</td>
+  team-page.html:4193:
+  team-page.html:4194:
+  team-page.html:4195:<td align='center'>
+  team-page.html:4196:+
+  team-page.html:4197:
+  team-page.html:4198:</td>
+  team-page.html:4199:
+  team-page.html:4200:<td align='center'>
+  team-page.html:4201:0-0
+  team-page.html:4202:</td>
+  team-page.html:4203:
+  team-page.html:4204:<td align='center'>
+> team-page.html:4205:<a class='SmallButton' 
+href='pmatch.asp?league=sweden&stats=56-12-3-2026' title='IFK Goteborg vs 
+Hammarby' target='_top'><img src='img/own/sshplogo.png' 
+style='padding-left:0px;padding-right:0px;padding-top:3px;'></a>
+  team-page.html:4206:</td>
+  team-page.html:4207:</tr>
+  team-page.html:4208:<tr bgcolor='#c6ecc6' height='38'>
+  team-page.html:4209:<td align='right'><font 
+style='font-size:11px;color:#444444;'>
+  team-page.html:4210:19 May
+  team-page.html:4211:</font>
+  team-page.html:4212:
+  team-page.html:4213:</td>
+  team-page.html:4214:<td align='right' style='padding-right:4px;'>
+  team-page.html:4215: Orgryte
+  team-page.html:4216:
+  team-page.html:4217:</td>
+  team-page.html:4218:
+  team-page.html:4219:<td align='center' width='46'>
+  team-page.html:4220:<a href='#m63' class='tooltip4' 
+style='background-color:#f8f8f8;'>
+  team-page.html:4221:<font 
+style='color:blue;font-size:14px;font-family:monospace;'><b>2:3</b></font>
+  team-page.html:4222:<span style='width:350px;'>
+  team-page.html:4223:<div 
+style='text-align:left;font-size:13px;line-height:16px;padding:10px;'>
+  team-page.html:4224:<font style='color:#000000;'>
+  team-page.html:4225:<br>&nbsp;&nbsp;&nbsp;&nbsp;
+  team-page.html:4226:<b>0-1</b>&nbsp;&nbsp;
+  team-page.html:4227:
+  team-page.html:4228:<font color='#000000'>August Erlingmark (21)</font>
+  team-page.html:4229:</font>
+  team-page.html:4230:<font style='color:#000000;'>
+  team-page.html:4231:<br>&nbsp;&nbsp;&nbsp;&nbsp;
+  team-page.html:4232:<b>0-2</b>&nbsp;&nbsp;
+  team-page.html:4233:
+  team-page.html:4234:<font color='#000000'>Benjamin Brantlind (28)</font>
+  team-page.html:4235:</font>
+  team-page.html:4236:<font style='color:#000000;'>
+  team-page.html:4237:<br>
+  team-page.html:4238:<b>1-2</b>&nbsp;&nbsp;
+  team-page.html:4239:<font color='#000000'>William Hofvander (37)</font>
+  team-page.html:4240:
+  team-page.html:4241:</font>
+  team-page.html:4242:<br>
+  team-page.html:4243:---------------------------------------
+  team-page.html:4244:<font style='color:#000000;'>
+  team-page.html:4245:<br>
+  team-page.html:4246:<b>2-2</b>&nbsp;&nbsp;
+  team-page.html:4247:<font color='#000000'>Daniel Paulson (87)</font>
+  team-page.html:4248:
+  team-page.html:4249:</font>
+  team-page.html:4250:<font style='color:#000000;'>
+  team-page.html:4251:<br>&nbsp;&nbsp;&nbsp;&nbsp;
+  team-page.html:4252:<b>2-3</b>&nbsp;&nbsp;
+  team-page.html:4253:
+  team-page.html:4254:<font color='#000000'>Felix Eriksson (90)</font>
+  team-page.html:4255:</font>
+  team-page.html:4256:</div>
+  team-page.html:4257:</span>
+  team-page.html:4258:</a>
+  team-page.html:4259:</td>
+  team-page.html:4260:
+  team-page.html:4261:<td align='left' style='padding-left:4px;'>
+  team-page.html:4262:<b>
+  team-page.html:4263:IFK Goteborg 
+  team-page.html:4264:</b>
+  team-page.html:4265:
+  team-page.html:4266:</td>
+  team-page.html:4267:
+  team-page.html:4268:
+  team-page.html:4269:<td align='center'>
+  team-page.html:4270:+
+  team-page.html:4271:
+  team-page.html:4272:</td>
+  team-page.html:4273:
+  team-page.html:4274:
+  team-page.html:4275:<td align='center'>
+  team-page.html:4276:-
+  team-page.html:4277:
+  team-page.html:4278:</td>
+  team-page.html:4279:
+  team-page.html:4280:
+  team-page.html:4281:<td align='center'>
+  team-page.html:4282:-
+  team-page.html:4283:
+  team-page.html:4284:</td>
+  team-page.html:4285:
+  team-page.html:4286:<td align='center'>
+  team-page.html:4287:1-2
+  team-page.html:4288:</td>
+  team-page.html:4289:
+  team-page.html:4290:<td align='center'>
+> team-page.html:4291:<a class='SmallButton' 
+href='pmatch.asp?league=sweden&stats=63-9-12-2026' title='Orgryte vs IFK 
+Goteborg' target='_top'><img src='img/own/sshplogo.png' 
+style='padding-left:0px;padding-right:0px;padding-top:3px;'></a>
+  team-page.html:4292:</td>
+  team-page.html:4293:</tr>
+  team-page.html:4294:<tr bgcolor='#FFFFBF' height='38'>
+  team-page.html:4295:<td align='right'><font 
+style='font-size:11px;color:#444444;'>
+  team-page.html:4296:25 May
+  team-page.html:4297:</font>
+  team-page.html:4298:
+  team-page.html:4299:</td>
+  team-page.html:4300:<td align='right' style='padding-right:4px;'>
+  team-page.html:4301:<b>
+  team-page.html:4302: IFK Goteborg
+  team-page.html:4303:</b>
+  team-page.html:4304:
+  team-page.html:4305:</td>
+  team-page.html:4306:
+  team-page.html:4307:<td align='center' width='46'>
+  team-page.html:4308:<a href='#m74' class='tooltip4' 
+style='background-color:#f8f8f8;'>
+  team-page.html:4309:<font 
+style='color:blue;font-size:14px;font-family:monospace;'><b>1:1</b></font>
+  team-page.html:4310:<span style='width:350px;'>
+  team-page.html:4311:<div 
+style='text-align:left;font-size:13px;line-height:16px;padding:10px;'>
+  team-page.html:4312:<br>
+  team-page.html:4313:---------------------------------------
+  team-page.html:4314:<font style='color:#000000;'>
+  team-page.html:4315:<br>
+  team-page.html:4316:<b>1-0</b>&nbsp;&nbsp;
+  team-page.html:4317:<font color='#000000'>Sebastian Clemmensen 
+(51)</font>
+  team-page.html:4318:
+  team-page.html:4319:</font>
+  team-page.html:4320:<font style='color:#000000;'>
+  team-page.html:4321:<br>&nbsp;&nbsp;&nbsp;&nbsp;
+  team-page.html:4322:<b>1-1</b>&nbsp;&nbsp;
+  team-page.html:4323:
+  team-page.html:4324:<font color='#000000'>Jacob Bergstr�m (58)</font> 
+pen.
+  team-page.html:4325:</font>
+  team-page.html:4326:</div>
+  team-page.html:4327:</span>
+  team-page.html:4328:</a>
+  team-page.html:4329:</td>
+  team-page.html:4330:
+  team-page.html:4331:<td align='left' style='padding-left:4px;'>
+  team-page.html:4332:Mjallby 
+  team-page.html:4333:
+  team-page.html:4334:</td>
+  team-page.html:4335:
+  team-page.html:4336:
+  team-page.html:4337:<td align='center'>
+  team-page.html:4338:-
+  team-page.html:4339:
+  team-page.html:4340:</td>
+  team-page.html:4341:
+  team-page.html:4342:
+  team-page.html:4343:<td align='center'>
+  team-page.html:4344:-
+  team-page.html:4345:
+  team-page.html:4346:</td>
+  team-page.html:4347:
+  team-page.html:4348:
+  team-page.html:4349:<td align='center'>
+  team-page.html:4350:-
+  team-page.html:4351:
+  team-page.html:4352:</td>
+  team-page.html:4353:
+  team-page.html:4354:<td align='center'>
+  team-page.html:4355:0-0
+  team-page.html:4356:</td>
+  team-page.html:4357:
+  team-page.html:4358:<td align='center'>
+> team-page.html:4359:<a class='SmallButton' 
+href='pmatch.asp?league=sweden&stats=74-12-4-2026' title='IFK Goteborg vs 
+Mjallby' target='_top'><img src='img/own/sshplogo.png' 
+style='padding-left:0px;padding-right:0px;padding-top:3px;'></a>
+  team-page.html:4360:</td>
+  team-page.html:4361:</tr>
+  team-page.html:4379:<br>&nbsp;&nbsp;&nbsp;&nbsp;
+  team-page.html:4380:<b>0-1</b>&nbsp;&nbsp;
+  team-page.html:4381:
+  team-page.html:4382:<font color='#000000'>Tobias Heintz (1)</font>
+  team-page.html:4383:</font>
+  team-page.html:4384:<font style='color:#000000;'>
+  team-page.html:4385:<br>&nbsp;&nbsp;&nbsp;&nbsp;
+  team-page.html:4386:<b>0-2</b>&nbsp;&nbsp;
+  team-page.html:4387:
+  team-page.html:4388:<font color='#000000'>Tobias Heintz (8)</font>
+  team-page.html:4389:</font>
+  team-page.html:4390:<font style='color:#000000;'>
+  team-page.html:4391:<br>&nbsp;&nbsp;&nbsp;&nbsp;
+  team-page.html:4392:<b>0-3</b>&nbsp;&nbsp;
+  team-page.html:4393:
+  team-page.html:4394:<font color='#000000'>Adam Bergmark-Wiberg 
+(9)</font>
+  team-page.html:4395:</font>
+  team-page.html:4396:<font style='color:#000000;'>
+  team-page.html:4397:<br>
+  team-page.html:4398:<b>1-3</b>&nbsp;&nbsp;
+  team-page.html:4399:<font color='#000000'>Karl Gunnarsson (27)</font>
+  team-page.html:4400:
+  team-page.html:4401:</font>
+  team-page.html:4402:<font style='color:#000000;'>
+  team-page.html:4403:<br>
+  team-page.html:4404:<b>2-3</b>&nbsp;&nbsp;
+  team-page.html:4405:<font color='#000000'>Mikkel Ladefoged (30)</font>
+  team-page.html:4406:
+  team-page.html:4407:</font>
+  team-page.html:4408:<font style='color:#000000;'>
+  team-page.html:4409:<br>&nbsp;&nbsp;&nbsp;&nbsp;
+  team-page.html:4410:<b>2-4</b>&nbsp;&nbsp;
+  team-page.html:4411:
+  team-page.html:4412:<font color='#000000'>Tobias Heintz (37)</font>
+  team-page.html:4413:</font>
+  team-page.html:4414:<br>
+  team-page.html:4415:---------------------------------------
+  team-page.html:4416:<font style='color:#000000;'>
+  team-page.html:4417:<br>
+  team-page.html:4418:<b>3-4</b>&nbsp;&nbsp;
+  team-page.html:4419:<font color='#000000'>A. Taonsa (53)</font>
+  team-page.html:4420:
+  team-page.html:4421:</font>
+  team-page.html:4422:<font style='color:#000000;'>
+  team-page.html:4423:<br>
+  team-page.html:4424:<b>4-4</b>&nbsp;&nbsp;
+  team-page.html:4425:<font color='#000000'>A. Taonsa (66)</font>
+  team-page.html:4426:
+  team-page.html:4427:</font>
+  team-page.html:4428:<font style='color:#000000;'>
+  team-page.html:4429:<br>&nbsp;&nbsp;&nbsp;&nbsp;
+  team-page.html:4430:<b>4-5</b>&nbsp;&nbsp;
+  team-page.html:4431:
+  team-page.html:4432:<font color='#000000'>Tobias Heintz (79)</font>
+  team-page.html:4433:</font>
+  team-page.html:4434:</div>
+  team-page.html:4435:</span>
+  team-page.html:4436:</a>
+  team-page.html:4437:</td>
+  team-page.html:4438:
+  team-page.html:4439:<td align='left' style='padding-left:4px;'>
+  team-page.html:4440:<b>
+  team-page.html:4441:IFK Goteborg 
+  team-page.html:4442:</b>
+  team-page.html:4443:
+  team-page.html:4444:</td>
+  team-page.html:4445:
+  team-page.html:4446:
+  team-page.html:4447:<td align='center'>
+  team-page.html:4448:+
+  team-page.html:4449:
+  team-page.html:4450:</td>
+  team-page.html:4451:
+  team-page.html:4452:
+  team-page.html:4453:<td align='center'>
+  team-page.html:4454:-
+  team-page.html:4455:
+  team-page.html:4456:</td>
+  team-page.html:4457:
+  team-page.html:4458:
+  team-page.html:4459:<td align='center'>
+  team-page.html:4460:-
+  team-page.html:4461:
+  team-page.html:4462:</td>
+  team-page.html:4463:
+  team-page.html:4464:<td align='center'>
+  team-page.html:4465:2-4
+  team-page.html:4466:</td>
+  team-page.html:4467:
+  team-page.html:4468:<td align='center'>
+> team-page.html:4469:<a class='SmallButton' 
+href='pmatch.asp?league=sweden&stats=79-6-12-2026' title='Vasteras vs IFK 
+Goteborg' target='_top'><img src='img/own/sshplogo.png' 
+style='padding-left:0px;padding-right:0px;padding-top:3px;'></a>
+  team-page.html:4470:</td>
+  team-page.html:4471:</tr>
+  team-page.html:4472:<tr bgcolor='#ffbaba' height='38'>
+  team-page.html:4473:<td align='right'><font 
+style='font-size:11px;color:#444444;'>
+  team-page.html:4474:5 Jul
+  team-page.html:4475:</font>
+  team-page.html:4476:
+  team-page.html:4477:</td>
+  team-page.html:4478:<td align='right' style='padding-right:4px;'>
+  team-page.html:4479:<b>
+  team-page.html:4480: IFK Goteborg
+  team-page.html:4481:</b>
+  team-page.html:4482:
+  team-page.html:4483:</td>
+  team-page.html:4484:
+  team-page.html:4485:<td align='center' width='46'>
+  team-page.html:4486:<a href='#m90' class='tooltip4' 
+style='background-color:#f8f8f8;'>
+  team-page.html:4487:<font 
+style='color:blue;font-size:14px;font-family:monospace;'><b>1:2</b></font>
+  team-page.html:4488:<span style='width:350px;'>
+  team-page.html:4489:<div 
+style='text-align:left;font-size:13px;line-height:16px;padding:10px;'>
+  team-page.html:4490:<font style='color:#000000;'>
+  team-page.html:4491:<br>
+  team-page.html:4492:<b>1-0</b>&nbsp;&nbsp;
+  team-page.html:4493:<font color='#000000'>Sebastian Clemmensen 
+(30)</font>
+  team-page.html:4494:
+  team-page.html:4495:</font>
+  team-page.html:4496:<font style='color:#000000;'>
+  team-page.html:4497:<br>&nbsp;&nbsp;&nbsp;&nbsp;
+  team-page.html:4498:<b>1-1</b>&nbsp;&nbsp;
+  team-page.html:4499:
+  team-page.html:4500:<font color='#000000'>Johan Hove (34)</font>
+  team-page.html:4501:</font>
+  team-page.html:4502:<br>
+  team-page.html:4503:---------------------------------------
+  team-page.html:4504:<font style='color:#000000;'>
+  team-page.html:4505:<br>&nbsp;&nbsp;&nbsp;&nbsp;
+  team-page.html:4506:<b>1-2</b>&nbsp;&nbsp;
+  team-page.html:4507:
+  team-page.html:4508:<font color='#000000'>Axel Kouame (76)</font>
+  team-page.html:4509:</font>
+  team-page.html:4510:</div>
+  team-page.html:4511:</span>
+  team-page.html:4512:</a>
+  team-page.html:4513:</td>
+  team-page.html:4514:
+  team-page.html:4515:<td align='left' style='padding-left:4px;'>
+  team-page.html:4516:AIK 
+  team-page.html:4517:
+  team-page.html:4518:</td>
+  team-page.html:4519:
+  team-page.html:4520:
+  team-page.html:4521:<td align='center'>
+  team-page.html:4522:+
+  team-page.html:4523:
+  team-page.html:4524:</td>
+  team-page.html:4525:
+  team-page.html:4526:
+  team-page.html:4527:<td align='center'>
+  team-page.html:4528:-
+  team-page.html:4529:
+  team-page.html:4530:</td>
+  team-page.html:4531:
+  team-page.html:4532:
+  team-page.html:4533:<td align='center'>
+  team-page.html:4534:-
+  team-page.html:4535:
+  team-page.html:4536:</td>
+  team-page.html:4537:
+  team-page.html:4538:<td align='center'>
+  team-page.html:4539:1-1
+  team-page.html:4540:</td>
+  team-page.html:4541:
+  team-page.html:4542:<td align='center'>
+> team-page.html:4543:<a class='SmallButton' 
+href='pmatch.asp?league=sweden&stats=90-12-7-2026' title='IFK Goteborg vs 
+AIK' target='_top'><img src='img/own/sshplogo.png' 
+style='padding-left:0px;padding-right:0px;padding-top:3px;'></a>
+  team-page.html:4544:</td>
+  team-page.html:4545:</tr>
+  team-page.html:4546:<tr bgcolor='#ffbaba' height='38'>
+  team-page.html:4547:<td align='right'><font 
+style='font-size:11px;color:#444444;'>
+  team-page.html:4548:12 Jul
+  team-page.html:4549:</font>
+  team-page.html:4550:
+  team-page.html:4551:</td>
+  team-page.html:4552:<td align='right' style='padding-right:4px;'>
+  team-page.html:4553: Malmo FF
+  team-page.html:4554:
+  team-page.html:4555:</td>
+  team-page.html:4556:
+  team-page.html:4557:<td align='center' width='46'>
+  team-page.html:4558:<a href='#m93' class='tooltip4' 
+style='background-color:#f8f8f8;'>
+  team-page.html:4559:<font 
+style='color:blue;font-size:14px;font-family:monospace;'><b>4:0</b></font>
+  team-page.html:4560:<span style='width:350px;'>
+  team-page.html:4561:<div 
+style='text-align:left;font-size:13px;line-height:16px;padding:10px;'>
+  team-page.html:4562:<font style='color:#000000;'>
+  team-page.html:4563:<br>
+  team-page.html:4564:<b>1-0</b>&nbsp;&nbsp;
+  team-page.html:4565:<font color='#000000'>Andrej Djuric (9)</font>
+  team-page.html:4566:
+  team-page.html:4567:</font>
+  team-page.html:4568:<font style='color:#000000;'>
+  team-page.html:4569:<br>
+  team-page.html:4570:<b>2-0</b>&nbsp;&nbsp;
+  team-page.html:4571:<font color='#000000'>Erik Botheim (23)</font>
+  team-page.html:4572:
+  team-page.html:4573:</font>
+  team-page.html:4574:<font style='color:#000000;'>
+  team-page.html:4575:<br>
+  team-page.html:4576:<b>3-0</b>&nbsp;&nbsp;
+  team-page.html:4577:<font color='#000000'>Erik Botheim (45)</font>
+  team-page.html:4578:
+  team-page.html:4579:</font>
+  team-page.html:4580:<br>
+  team-page.html:4581:---------------------------------------
+  team-page.html:4582:<font style='color:#000000;'>
+  team-page.html:4583:<br>
+  team-page.html:4584:<b>4-0</b>&nbsp;&nbsp;
+  team-page.html:4585:<font color='#000000'>Anton Sebastian H��g 
+(48)</font>
+  team-page.html:4586:
+  team-page.html:4587:</font>
+  team-page.html:4588:</div>
+  team-page.html:4589:</span>
+  team-page.html:4590:</a>
+  team-page.html:4591:</td>
+  team-page.html:4592:
+  team-page.html:4593:<td align='left' style='padding-left:4px;'>
+  team-page.html:4594:<b>
+  team-page.html:4595:IFK Goteborg 
+  team-page.html:4596:</b>
+  team-page.html:4597:
+  team-page.html:4598:</td>
+  team-page.html:4599:
+  team-page.html:4600:
+  team-page.html:4601:<td align='center'>
+  team-page.html:4602:+
+  team-page.html:4603:
+  team-page.html:4604:</td>
+  team-page.html:4605:
+  team-page.html:4606:
+  team-page.html:4607:<td align='center'>
+  team-page.html:4608:-
+  team-page.html:4609:
+  team-page.html:4610:</td>
+  team-page.html:4611:
+  team-page.html:4612:
+  team-page.html:4613:<td align='center'>
+  team-page.html:4614:+
+  team-page.html:4615:
+  team-page.html:4616:</td>
+  team-page.html:4617:
+  team-page.html:4618:<td align='center'>
+  team-page.html:4619:3-0
+  team-page.html:4620:</td>
+  team-page.html:4621:
+  team-page.html:4622:<td align='center'>
+> team-page.html:4623:<a class='SmallButton' 
+href='pmatch.asp?league=sweden&stats=93-10-12-2026' title='Malmo FF vs 
+IFK Goteborg' target='_top'><img src='img/own/sshplogo.png' 
+style='padding-left:0px;padding-right:0px;padding-top:3px;'></a>
+  team-page.html:4624:</td>
+  team-page.html:4625:</tr>
+  team-page.html:4626:<tr bgcolor='#c6ecc6' height='38'>
+  team-page.html:4627:<td align='right'><font 
+style='font-size:11px;color:#444444;'>
+  team-page.html:4628:17 Jul
+  team-page.html:4629:</font>
+  team-page.html:4630:
+  team-page.html:4631:</td>
+  team-page.html:4632:<td align='right' style='padding-right:4px;'>
+  team-page.html:4633:<b>
+  team-page.html:4634: IFK Goteborg
+  team-page.html:4635:</b>
+  team-page.html:4636:
+  team-page.html:4637:</td>
+  team-page.html:4638:
+  team-page.html:4639:<td align='center' width='46'>
+  team-page.html:4640:<a href='#m104' class='tooltip4' 
+style='background-color:#f8f8f8;'>
+  team-page.html:4641:<font 
+style='color:blue;font-size:14px;font-family:monospace;'><b>2:1</b></font>
+  team-page.html:4642:<span style='width:350px;'>
+  team-page.html:4643:<div 
+style='text-align:left;font-size:13px;line-height:16px;padding:10px;'>
+  team-page.html:4644:<br>
+  team-page.html:4645:---------------------------------------
+  team-page.html:4646:<font style='color:#000000;'>
+  team-page.html:4647:<br>
+  team-page.html:4648:<b>1-0</b>&nbsp;&nbsp;
+  team-page.html:4649:<font color='#000000'>Rockson Yeboah (54)</font>
+  team-page.html:4650:
+  team-page.html:4651:</font>
+  team-page.html:4652:<font style='color:#000000;'>
+  team-page.html:4653:<br>&nbsp;&nbsp;&nbsp;&nbsp;
+  team-page.html:4654:<b>1-1</b>&nbsp;&nbsp;
+  team-page.html:4655:
+  team-page.html:4656:<font color='#000000'>Oliver Berg (67)</font>
+  team-page.html:4657:</font>
+  team-page.html:4658:<font style='color:#000000;'>
+  team-page.html:4659:<br>
+  team-page.html:4660:<b>2-1</b>&nbsp;&nbsp;
+  team-page.html:4661:<font color='#000000'>Sebastian Clemmensen 
+(79)</font>
+  team-page.html:4662:
+  team-page.html:4663:</font>
+  team-page.html:4664:</div>
+  team-page.html:4665:</span>
+  team-page.html:4666:</a>
+  team-page.html:4667:</td>
+  team-page.html:4668:
+  team-page.html:4669:<td align='left' style='padding-left:4px;'>
+  team-page.html:4670:Brommapojkarna 
+  team-page.html:4671:
+  team-page.html:4672:</td>
+  team-page.html:4673:
+  team-page.html:4674:
+  team-page.html:4675:<td align='center'>
+  team-page.html:4676:+
+  team-page.html:4677:
+  team-page.html:4678:</td>
+  team-page.html:4679:
+  team-page.html:4680:
+  team-page.html:4681:<td align='center'>
+  team-page.html:4682:-
+  team-page.html:4683:
+  team-page.html:4684:</td>
+  team-page.html:4685:
+  team-page.html:4686:
+  team-page.html:4687:<td align='center'>
+  team-page.html:4688:-
+  team-page.html:4689:
+  team-page.html:4690:</td>
+  team-page.html:4691:
+  team-page.html:4692:<td align='center'>
+  team-page.html:4693:0-0
+  team-page.html:4694:</td>
+  team-page.html:4695:
+  team-page.html:4696:<td align='center'>
+> team-page.html:4697:<a class='SmallButton' 
+href='pmatch.asp?league=sweden&stats=104-12-14-2026' title='IFK Goteborg 
+vs Brommapojkarna' target='_top'><img src='img/own/sshplogo.png' 
+style='padding-left:0px;padding-right:0px;padding-top:3px;'></a>
+  team-page.html:4698:</td>
+  team-page.html:4699:</tr>
+  team-page.html:4700:<tr bgcolor='#ffbaba' height='38'>
+  team-page.html:4701:<td align='right'><font 
+style='font-size:11px;color:#444444;'>
+  team-page.html:4702:26 Jul
+  team-page.html:4703:</font>
+  team-page.html:4704:
+  team-page.html:4705:</td>
+  team-page.html:4706:<td align='right' style='padding-right:4px;'>
+  team-page.html:4707: Sirius
+  team-page.html:4708:
+  team-page.html:4709:</td>
+  team-page.html:4710:
+  team-page.html:4711:<td align='center' width='46'>
+  team-page.html:4712:<a href='#m109' class='tooltip4' 
+style='background-color:#f8f8f8;'>
+  team-page.html:4713:<font 
+style='color:blue;font-size:14px;font-family:monospace;'><b>4:1</b></font>
+  team-page.html:4714:<span style='width:350px;'>
+  team-page.html:4715:<div 
+style='text-align:left;font-size:13px;line-height:16px;padding:10px;'>
+  team-page.html:4716:<font style='color:#000000;'>
+  team-page.html:4717:<br>
+  team-page.html:4718:<b>1-0</b>&nbsp;&nbsp;
+  team-page.html:4719:<font color='#000000'>Mohamed Soumah (6)</font>
+  team-page.html:4720:
+  team-page.html:4721:</font>
+  team-page.html:4722:<font style='color:#000000;'>
+  team-page.html:4723:<br>
+  team-page.html:4724:<b>2-0</b>&nbsp;&nbsp;
+  team-page.html:4725:<font color='#000000'>Robbie Ure (23)</font>
+  team-page.html:4726:
+  team-page.html:4727:</font>
+  team-page.html:4728:<font style='color:#000000;'>
+  team-page.html:4729:<br>&nbsp;&nbsp;&nbsp;&nbsp;
+  team-page.html:4730:<b>2-1</b>&nbsp;&nbsp;
+  team-page.html:4731:
+  team-page.html:4732:<font color='#000000'>Sam Larsson (45)</font> pen.
+  team-page.html:4733:</font>
+  team-page.html:4734:<br>
+  team-page.html:4735:---------------------------------------
+  team-page.html:4736:<font style='color:#000000;'>
+  team-page.html:4737:<br>
+  team-page.html:4738:<b>3-1</b>&nbsp;&nbsp;
+  team-page.html:4739:<font color='#000000'>Marcus Lindberg (71)</font>
+  team-page.html:4740:
+  team-page.html:4741:</font>
+  team-page.html:4742:<font style='color:#000000;'>
+  team-page.html:4743:<br>
+  team-page.html:4744:<b>4-1</b>&nbsp;&nbsp;
+  team-page.html:4745:<font color='#000000'>August Ljungberg (83)</font>
+  team-page.html:4746:
+  team-page.html:4747:</font>
+  team-page.html:4748:</div>
+  team-page.html:4749:</span>
+  team-page.html:4750:</a>
+  team-page.html:4751:</td>
+  team-page.html:4752:
+  team-page.html:4753:<td align='left' style='padding-left:4px;'>
+  team-page.html:4754:<b>
+  team-page.html:4755:IFK Goteborg 
+  team-page.html:4756:</b>
+  team-page.html:4757:
+  team-page.html:4758:</td>
+  team-page.html:4759:
+  team-page.html:4760:
+  team-page.html:4761:<td align='center'>
+  team-page.html:4762:+
+  team-page.html:4763:
+  team-page.html:4764:</td>
+  team-page.html:4765:
+  team-page.html:4766:
+  team-page.html:4767:<td align='center'>
+  team-page.html:4768:-
+  team-page.html:4769:
+  team-page.html:4770:</td>
+  team-page.html:4771:
+  team-page.html:4772:
+  team-page.html:4773:<td align='center'>
+  team-page.html:4774:-
+  team-page.html:4775:
+  team-page.html:4776:</td>
+  team-page.html:4777:
+  team-page.html:4778:<td align='center'>
+  team-page.html:4779:2-1
+  team-page.html:4780:</td>
+  team-page.html:4781:
+  team-page.html:4782:<td align='center'>
+> team-page.html:4783:<a class='SmallButton' 
+href='pmatch.asp?league=sweden&stats=109-2-12-2026' title='Sirius vs IFK 
+Goteborg' target='_top'><img src='img/own/sshplogo.png' 
+style='padding-left:0px;padding-right:0px;padding-top:3px;'></a>
+  team-page.html:4784:</td>
+  team-page.html:4785:</tr>
+
+

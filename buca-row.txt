@@ -1,0 +1,75 @@
+﻿
+  bucaramanga-page.html:3697:<td align='center' width='46'>
+  bucaramanga-page.html:3698:<a href='#m5' class='tooltip4' 
+style='background-color:#f8f8f8;'>
+  bucaramanga-page.html:3699:<font 
+style='color:blue;font-size:14px;font-family:monospace;'><b>2:1</b></font>
+  bucaramanga-page.html:3700:<span style='width:350px;'>
+  bucaramanga-page.html:3701:<div 
+style='text-align:left;font-size:13px;line-height:16px;padding:10px;'>
+  bucaramanga-page.html:3702:<font style='color:#000000;'>
+  bucaramanga-page.html:3703:<br>&nbsp;&nbsp;&nbsp;&nbsp;
+  bucaramanga-page.html:3704:<b>0-1</b>&nbsp;&nbsp;
+  bucaramanga-page.html:3705:
+  bucaramanga-page.html:3706:<font color='#000000'>Leonardo Flores (o.g.) 
+(41)</font>
+  bucaramanga-page.html:3707:</font>
+  bucaramanga-page.html:3708:<br>
+  bucaramanga-page.html:3709:---------------------------------------
+  bucaramanga-page.html:3710:<font style='color:#000000;'>
+  bucaramanga-page.html:3711:<br>
+  bucaramanga-page.html:3712:<b>1-1</b>&nbsp;&nbsp;
+  bucaramanga-page.html:3713:<font color='#000000'>Leonardo Flores 
+(60)</font>
+  bucaramanga-page.html:3714:
+  bucaramanga-page.html:3715:</font>
+  bucaramanga-page.html:3716:<font style='color:#000000;'>
+  bucaramanga-page.html:3717:<br>
+  bucaramanga-page.html:3718:<b>2-1</b>&nbsp;&nbsp;
+  bucaramanga-page.html:3719:<font color='#000000'>Luciano Pons 
+(65)</font>
+  bucaramanga-page.html:3720:
+  bucaramanga-page.html:3721:</font>
+  bucaramanga-page.html:3722:</div>
+  bucaramanga-page.html:3723:</span>
+  bucaramanga-page.html:3724:</a>
+  bucaramanga-page.html:3725:</td>
+  bucaramanga-page.html:3726:
+  bucaramanga-page.html:3727:<td align='left' style='padding-left:4px;'>
+  bucaramanga-page.html:3728:<b>
+  bucaramanga-page.html:3729:Millonarios 
+  bucaramanga-page.html:3730:</b>
+  bucaramanga-page.html:3731:
+  bucaramanga-page.html:3732:</td>
+  bucaramanga-page.html:3733:
+  bucaramanga-page.html:3734:
+  bucaramanga-page.html:3735:<td align='center'>
+  bucaramanga-page.html:3736:+
+  bucaramanga-page.html:3737:
+  bucaramanga-page.html:3738:</td>
+  bucaramanga-page.html:3739:
+  bucaramanga-page.html:3740:
+  bucaramanga-page.html:3741:<td align='center'>
+  bucaramanga-page.html:3742:-
+  bucaramanga-page.html:3743:
+  bucaramanga-page.html:3744:</td>
+  bucaramanga-page.html:3745:
+  bucaramanga-page.html:3746:
+  bucaramanga-page.html:3747:<td align='center'>
+  bucaramanga-page.html:3748:-
+  bucaramanga-page.html:3749:
+  bucaramanga-page.html:3750:</td>
+  bucaramanga-page.html:3751:
+  bucaramanga-page.html:3752:<td align='center'>
+  bucaramanga-page.html:3753:0-1
+  bucaramanga-page.html:3754:</td>
+  bucaramanga-page.html:3755:
+  bucaramanga-page.html:3756:<td align='center'>
+> bucaramanga-page.html:3757:<a class='SmallButton' 
+href='pmatch.asp?league=colombia&stats=5-9-10-2026' title='A. Bucaramanga 
+vs Millonarios' target='_top'><img src='img/own/sshplogo.png' 
+style='padding-left:0px;padding-right:0px;padding-top:3px;'></a>
+  bucaramanga-page.html:3758:</td>
+  bucaramanga-page.html:3759:</tr>
+
+

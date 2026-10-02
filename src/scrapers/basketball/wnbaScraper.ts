@@ -26,7 +26,6 @@ const HEADERS = {
 };
 
 // ─── ABBREVIATION MAP ─────────────────────────────────────────────────────────
-
 const ABBREV_TO_NAME: Record<string, string> = {
   'ATL': 'Atlanta Dream',
   'CHI': 'Chicago Sky',
@@ -35,11 +34,11 @@ const ABBREV_TO_NAME: Record<string, string> = {
   'GSV': 'Golden State Valkyries',
   'IND': 'Indiana Fever',
   'LVA': 'Las Vegas Aces',
-  'LA':  'Los Angeles Sparks',
+  'LAS': 'Los Angeles Sparks',  // fixed 2026-08-02: stats.wnba.com uses LAS, not LA
   'MIN': 'Minnesota Lynx',
   'NYL': 'New York Liberty',
-  'PHO': 'Phoenix Mercury',
-  'POR': 'Portland Fire',
+  'PHX': 'Phoenix Mercury',     // fixed 2026-08-02: stats.wnba.com uses PHX, not PHO
+  'PDX': 'Portland Fire',       // fixed 2026-08-02: stats.wnba.com uses PDX, not POR
   'SEA': 'Seattle Storm',
   'TOR': 'Toronto Tempo',
   'WAS': 'Washington Mystics',

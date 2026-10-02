@@ -1,3 +1,4 @@
+// src/core/database/repository.ts
 import Database from 'better-sqlite3';
 import { v4 as uuidv4 } from 'uuid';
 import { Match, Odds, Stats, ValueBet, CLVRecord, CornersGradingQueueEntry, GoalsGradingQueueEntry } from './schema';
@@ -207,6 +208,49 @@ export class Repository {
     `).run(homeCornersAvg, awayCornersAvg, matchId);
   }
 
+  // Partial update for cards only — mirrors updateCornersAvg exactly, NOT
+  // updateGoalsAvg: probabilityModel.ts reads stats.homeCardsAvg /
+  // stats.awayCardsAvg as top-level columns directly (same as corners),
+  // not via additionalContext (that's the goals pattern only). Writing
+  // this into additionalContext instead would repeat the exact silent-drop
+  // bug the upsertStats comment above already flagged once. Used by
+  // cardsSotAggregator.ts.
+  updateCardsAvg(matchId: string, homeCardsAvg: number, awayCardsAvg: number): void {
+    const existing = this.db.prepare(
+      `SELECT id FROM stats WHERE matchId = ?`
+    ).get(matchId) as { id: string } | undefined;
+
+    if (!existing) {
+      logger.warn('[Repository] updateCardsAvg: no stats row exists for matchId — skipping', { matchId });
+      return;
+    }
+
+    this.db.prepare(`
+      UPDATE stats SET
+        homeCardsAvg = ?, awayCardsAvg = ?, lastUpdated = CURRENT_TIMESTAMP
+      WHERE matchId = ?
+    `).run(homeCardsAvg, awayCardsAvg, matchId);
+  }
+
+  // Partial update for SOT only — same direct-column pattern as
+  // updateCardsAvg/updateCornersAvg. Used by cardsSotAggregator.ts.
+  updateSotAvg(matchId: string, homeSotAvg: number, awaySotAvg: number): void {
+    const existing = this.db.prepare(
+      `SELECT id FROM stats WHERE matchId = ?`
+    ).get(matchId) as { id: string } | undefined;
+
+    if (!existing) {
+      logger.warn('[Repository] updateSotAvg: no stats row exists for matchId — skipping', { matchId });
+      return;
+    }
+
+    this.db.prepare(`
+      UPDATE stats SET
+        homeSotAvg = ?, awaySotAvg = ?, lastUpdated = CURRENT_TIMESTAMP
+      WHERE matchId = ?
+    `).run(homeSotAvg, awaySotAvg, matchId);
+  }
+
   // Partial update for goals only — writes into stats.additionalContext
   // (JSON blob), NOT the separate homeGoalsAvg/awayGoalsAvg columns —
   // computeFootballLambdas (probabilityModel.ts) reads
@@ -228,6 +272,45 @@ export class Repository {
     const context = JSON.parse(existing.additionalContext || '{}');
     context.homeGoalsAvg = homeGoalsAvg;
     context.awayGoalsAvg = awayGoalsAvg;
+
+    this.db.prepare(`
+      UPDATE stats SET
+        additionalContext = ?, lastUpdated = CURRENT_TIMESTAMP
+      WHERE matchId = ?
+    `).run(JSON.stringify(context), matchId);
+  }
+
+  // Partial update for table position — writes into stats.additionalContext
+  // (JSON blob), same pattern as updateGoalsAvg. homeTablePosition/
+  // awayTablePosition/leagueTeamCount are read from additionalContext by
+  // eloStrengthRatio in probabilityModel.ts (see that function's optional
+  // tablePosition param), not from dedicated columns — same reasoning as
+  // goals: this is a cross-cutting model input, not a market-specific
+  // column like corners/cards/SOT. Used by standingsAggregator.ts.
+  //
+  // Same no-op-if-missing-row behavior as every other partial update here:
+  // aggregateTablePositionForMatch must run AFTER upsertStats has already
+  // created the base stats row for this match — this method only merges
+  // into an existing row, it never creates one.
+  updateTablePosition(
+    matchId: string,
+    homeTablePosition: number,
+    awayTablePosition: number,
+    leagueTeamCount: number
+  ): void {
+    const existing = this.db.prepare(
+      `SELECT id, additionalContext FROM stats WHERE matchId = ?`
+    ).get(matchId) as { id: string; additionalContext: string } | undefined;
+
+    if (!existing) {
+      logger.warn('[Repository] updateTablePosition: no stats row exists for matchId — skipping', { matchId });
+      return;
+    }
+
+    const context = JSON.parse(existing.additionalContext || '{}');
+    context.homeTablePosition = homeTablePosition;
+    context.awayTablePosition = awayTablePosition;
+    context.leagueTeamCount = leagueTeamCount;
 
     this.db.prepare(`
       UPDATE stats SET

@@ -1,0 +1,60 @@
+﻿<table id='btable' width='100%'>
+
+<thead>
+<tr height='38' style='pointer-events:none;'><td colspan='9' valign='middle' style='padding-left:5px;'><h2>Latest matches</h2></td>
+
+<td></td>
+
+</tr>
+</thead>
+
+<tbody>
+
+<tr height='42' bgcolor='#ffffff'>
+<td width='70' style='padding-left:5px;'><font style='font-size:11px;color:#333333;'>Fri 31 Jul</font></td>
+<td><a href='teamstats.asp?league=poland&stats=u7160-wisla-plock'>Wisla Plock</a> - <a href='teamstats.asp?league=poland&stats=u2527-widzew-lodz'>Widzew Lodz</a></td>
+<td></td>
+<td width='40'>
+<a href='#m10' class='tooltip4'>
+<font style='color:blue;font-size:14px;font-family:monospace;'><b>0:0</b></font>
+<span>
+<div style='text-align:left;font-size:13px;line-height:16px;padding:10px;'>
+<br>
+</div>
+</span>
+</a>
+</td>
+<td colspan='4'></td>
+
+<td align='center' width='40' valign='middle'>
+<a href='round_details.asp?league=poland&mrevid=m10&st1=12&st2=13' style='font-size:13px;padding-left:5px;padding-right:5px;' class='vsmall'>stats</a>
+</td>
+
+</tr>
+
+<tr height='42' bgcolor='#ffffff'>
+<td width='70' style='padding-left:5px;'><font style='font-size:11px;color:#333333;'>Fri 31 Jul</font></td>
+<td><a href='teamstats.asp?league=poland&stats=u2552-motor-lublin'>Motor Lublin</a> - <a href='teamstats.asp?league=poland&stats=u7157-jagiellonia'>Jagiellonia</a></td>
+<td></td>
+<td width='40'>
+<a href='#m11' class='tooltip4'>
+<font style='color:blue;font-size:14px;font-family:monospace;'><b>1:2</b></font>
+<span>
+<div style='text-align:left;font-size:13px;line-height:16px;padding:10px;'>
+<font style='color:#000000;'>
+<br>&nbsp;&nbsp;&nbsp;&nbsp;
+<b>0-1</b>&nbsp;&nbsp;
+
+<font color='#000000'>Nik Prelec (33)</font>
+</font>
+<br>
+---------------------------------------
+<font style='color:#000000;'>
+<br>
+<b>1-1</b>&nbsp;&nbsp;
+<font color='#000000'>Karol Czubak (82)</font>
+
+</font>
+<font style='color:#000000;'>
+<br>&nbsp;&nbsp;&nbsp;&nbsp;
+<b>1-2</b>&nbsp;&nbsp;

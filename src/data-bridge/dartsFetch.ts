@@ -35,12 +35,58 @@ import { isMajorInSession, getActiveMajor, fetchMajorSummary, parseMajorMatches 
 
 // ─── PLAYER ID MAP ────────────────────────────────────────────────────────────
 // Static lookup since dartsdatabase.co.uk's player search is JS-rendered
-// and not scrapable. Add pids here as new players are encountered.
+// and not scrapable (player-searcher.php renders results client-side after
+// page load — confirmed empty in raw server response, see
+// dartsDatabaseScraper.ts header comment).
+//
+// Populated this session (Sept 1, 2026) by manually looking up each player
+// on dartsdatabase.co.uk directly (site's own search works fine for a human
+// browsing it, just not for a plain fetch()) and reading the pid off the
+// resulting player-profile-live.php?pid=XXXX URL.
+//
+// COVERAGE: the 16 players guaranteed into the World Grand Prix 2026 field
+// via top-16 PDC Order of Merit, as of Aug 26, 2026. The other 16 WGP slots
+// fill via top-16 ProTour Order of Merit, which locks in around Sept 23,
+// 2026 — NOT yet known/added. Re-check and extend this map once that list
+// is published, ideally a few days before the tournament (Sept 28–Oct 4).
+//
+// KNOWN RISK: keys must match how live-darts.com actually renders each
+// name in fixtures (after .toLowerCase().trim() — see lookupPid() below).
+// Case is handled, but formatting differences are NOT (e.g. "Michael van
+// Gerwen" vs "Michael Van Gerwen" vs a nickname/abbreviation like "MVG").
+// Verify this against real fixture data once live-darts.com's WGP schedule
+// page is confirmed and slugged in liveDartsScraper.ts.
+//
+// VERIFICATION NOTE: each pid below was manually confirmed against its own
+// profile page (name displayed on page matched the intended player) after
+// a couple of near-miss mixups this session (e.g. a "Jan van Veen" vs
+// "Gian van Veen" collision, and a stray/duplicate link that got dropped
+// rather than guessed at) — do the same manual name-check for any new
+// pid added later rather than trusting a single search result blindly.
 export const PLAYER_ID_MAP: Record<string, string> = {
-  'gabriel clemens': '3097',
-  // add more as encountered, e.g.:
-  // 'luke littler': 'XXXX',
-  // 'michael van gerwen': 'XXXX',
+  'gabriel clemens': '3097', // not in WGP top-16, kept from earlier session — may qualify via ProTour or appear in other events
+
+  // Top-16 PDC Order of Merit, guaranteed WGP 2026 field (confirmed Aug 26, 2026):
+  'luke littler': '73951',
+  'luke humphries': '11822',
+  'gian van veen': '21491',
+  'gerwyn price': '16492',
+  'jonny clayton': '6861',
+  'james wade': '11',
+  'michael van gerwen': '1395',
+  'josh rock': '74975',
+  'stephen bunting': '192',
+  'gary anderson': '181',
+  'danny noppert': '13202',
+  'ryan searle': '10584',
+  'wessel nijman': '27979',
+  'chris dobey': '16076',
+  'nathan aspinall': '13326',
+  'jermaine wattimena': '7462',
+
+  // Remaining 16 WGP slots (top-16 ProTour Order of Merit, locks ~Sept 23,
+  // 2026) — TODO: add names/pids here once that list is published, same
+  // manual-lookup + name-verification process as above.
 };
 
 function lookupPid(playerName: string): string | null {
@@ -135,6 +181,22 @@ export async function fetchDartsFixturesAndStats(): Promise<DartsFetchResult> {
     try {
       const pid1 = lookupPid(fixture.player1);
       const pid2 = lookupPid(fixture.player2);
+
+      // DEBUG: log every pid lookup attempt (hit or miss) — cheap insurance
+      // against the exact failure mode PLAYER_ID_MAP is prone to: a real
+      // mapped player getting silently skipped because live-darts.com
+      // rendered their name slightly differently than the map key
+      // (e.g. capitalization, accents, suffixes). A logger.warn alone
+      // (below) tells you a miss happened; this line tells you the
+      // *raw* name that was actually looked up, so a formatting mismatch
+      // is visible immediately instead of looking identical to a
+      // genuinely-unmapped player.
+      logger.debug('[DartsFetch] Pid lookup', {
+        player1: fixture.player1,
+        pid1: pid1 ?? 'NOT FOUND',
+        player2: fixture.player2,
+        pid2: pid2 ?? 'NOT FOUND',
+      });
 
       const player1Stats = pid1 ? await fetchPlayerStats(pid1) : null;
       const player2Stats = pid2 ? await fetchPlayerStats(pid2) : null;

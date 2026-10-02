@@ -33,26 +33,57 @@ export interface DartsTip {
 }
 
 // ─── FORMAT DETECTION ─────────────────────────────────────────────────────────
-// FIXED: originally checked fixture.eventName, a field that belonged to the
-// old (broken) DartsFixture type from dartsdatabase.co.uk — LiveDartsMatch
-// (the current fixture type, from liveDartsScraper.ts) has no eventName
-// field at all, causing a real compile error. ctx.majorName is actually
-// more reliable anyway — it comes directly from getActiveMajor().name in
-// dartsFetch.ts, not from a fixtures endpoint that was confirmed broken.
-// Since this whole module currently only runs for majors (see dartsFetch.ts
-// — regular Tour events have no working fixture source yet), majorName is
-// never null in practice when this function is actually called, but the
-// fallback to '' keeps this safe if that changes later.
+// ctx.majorName comes directly from getActiveMajor().name in
+// dartsFetch.ts — reliable since this module currently only runs for
+// majors (regular Tour events have no working fixture source yet).
+//
+// CORRECTED this session — this list was audited tournament-by-tournament
+// against real Wikipedia infobox data (each checked across multiple
+// years, not just assumed from the tournament's reputation), after
+// 'world grand prix' was found missing entirely and 'world matchplay'
+// was found to be WRONGLY included. Full audit result:
+//
+//   world championship   -> CONFIRMED sets (every year, best-of-N sets
+//                            escalating by round)
+//   world grand prix     -> CONFIRMED sets, double-in/double-out (added
+//                            this session — was missing)
+//   world masters        -> CONFIRMED sets, but ONLY for the 2025
+//                            edition onward — 2013-2024 editions were
+//                            LEGS format (the tournament was completely
+//                            revamped for 2025). Since MAJOR_TOURNAMENTS
+//                            in dartsWikipediaScraper.ts only lists the
+//                            current/future edition (2026), this is safe
+//                            for the LIVE pipeline as-is — but a future
+//                            backtest expansion touching pre-2025 World
+//                            Masters data would need to exclude it from
+//                            this list for those years specifically.
+//
+// REMOVED — confirmed LEGS format via real Wikipedia infobox checks
+// across multiple years each (these were WRONGLY treated as sets-format
+// before this session, meaning any live match at these tournaments would
+// have incorrectly received SETS_FORMAT_CONFIDENCE_BOOST and the
+// misleading "Sets format — variance suppressed" reasoning line):
+//   world matchplay              -> legs (confirmed 1998-2020, 5 editions)
+//   grand slam                   -> legs (confirmed 2007-2025), also a
+//                                    group-stage format, not a straight
+//                                    knockout bracket like World Grand Prix
+//   players championship finals  -> legs (confirmed 2010-2025, 6 editions)
+//   premier league                -> legs (confirmed via infobox + 2
+//                                    independent sources), also a weekly
+//                                    league table over months, not a
+//                                    bracket at all
+//   world cup of darts           -> legs (confirmed 2012-2023, 6
+//                                    editions), also a DOUBLES/TEAMS
+//                                    event (national pairs), not 1v1
+//                                    singles — this generator's
+//                                    player1/player2 model doesn't map
+//                                    onto it even setting format aside
+//   european championship        -> legs (confirmed 2014-2022, 5 editions)
 
 const KNOWN_SETS_FORMAT_EVENTS = [
   'world championship',
-  'world matchplay',
-  'world masters',
-  'grand slam',
-  'players championship finals',
-  'premier league',
-  'world cup of darts',
-  'european championship',
+  'world grand prix',
+  'world masters', // current/future editions only — see comment above
 ];
 
 function isSetsFormatEvent(eventName: string): boolean {
@@ -146,6 +177,18 @@ export function generateMatchWinnerTip(ctx: DartsFixtureWithContext): DartsTip |
 }
 
 // ─── MOST 180s (MAJORS ONLY) ─────────────────────────────────────────────────
+//
+// STATUS: shelved pending a real data source. This is currently a proxy
+// that reuses the average-difference signal from match_winner_sets with
+// a flat, non-varying 0.50 confidence — it does NOT use actual 180s
+// counts at all (no confirmed per-match 180s source exists yet — see
+// dartsWikipediaScraper.ts's fetchMajorSummary comments). 0.50 sits
+// below even THRESHOLDS.MIN_CONFIDENCE (0.55) used elsewhere in this
+// codebase, let alone any sport's real practical bar — this market
+// cannot clear a real confidence threshold as currently built. Kept in
+// the code (not deleted) since the function is harmless when unused,
+// but should not be wired into any live tip consumer until a real 180s
+// data source exists.
 
 export function generateMost180sTip(ctx: DartsFixtureWithContext): DartsTip | null {
   if (!isMajorInSession()) {

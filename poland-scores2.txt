@@ -1,0 +1,60 @@
+﻿			<br>
+			<table width="100%" cellspacing="0" cellpadding="0" border="0">
+			<tr>
+			<td valign='top'>
+			<h2 style='padding-bottom:6px;'>Scores</h2>
+<div class='tabs'>
+<input type='radio' name='poland_scorestabs' id='poland_SCOTAB_1' checked='checked'>
+<label for='poland_SCOTAB_1'>Full-time</label>
+<div class='tab' style='background-color:#ffffff;'><br>
+<h3 style='padding-bottom:6px;padding-top:14px;padding-left:4px;'>Full-time scores</h3>
+
+<table id='btable' cellspacing='0' cellpadding='0' width='100%'>
+<tr style='pointer-events:none;height:26px;'><td align='center'>FT score</td>
+<td colspan='4' align='left'>
+Matches
+</td></tr>
+
+<tr height='34' class='odd'>
+
+<td align='center' width='70'>
+<a class='vsmall' href='matchlist.asp?league=poland&matches=99-99-99-3-2-99' style='padding-left:6px;padding-right:6px;'>
+<font color='blue'><b>2 - 1</b></font>
+</a>
+</td>
+<td align='left' width='22'><font color='#444444'>4</font></td>
+<td align='left'>
+<progress value='25' max='100' style='width:40px;'></progress>
+</td>
+<td align='center'>25%</td>
+
+</tr>
+
+<tr height='34' class='odd'>
+
+<td align='center' width='70'>
+<a class='vsmall' href='matchlist.asp?league=poland&matches=99-99-99-2-3-99' style='padding-left:6px;padding-right:6px;'>
+<font color='#C70039'><b>1 - 2</b></font>
+</a>
+</td>
+<td align='left' width='22'><font color='#444444'>3</font></td>
+<td align='left'>
+<progress value='19' max='100' style='width:40px;'></progress>
+</td>
+<td align='center'>19%</td>
+
+</tr>
+
+<tr height='34' class='odd'>
+
+<td align='center' width='70'>
+<a class='vsmall' href='matchlist.asp?league=poland&matches=99-99-99-4-2-99' style='padding-left:6px;padding-right:6px;'>
+<font color='blue'><b>3 - 1</b></font>
+</a>
+</td>
+<td align='left' width='22'><font color='#444444'>2</font></td>
+<td align='left'>
+<progress value='12' max='100' style='width:40px;'></progress>
+</td>
+<td align='center'>12%</td>
+

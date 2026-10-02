@@ -16,6 +16,7 @@ export interface EngineResult {
   betsRejected: number;
   valueBets: ValueBet[];
   durationMs: number;
+  
 }
 
 function buildDefaultStats(matchId: string, sport: string): Stats {

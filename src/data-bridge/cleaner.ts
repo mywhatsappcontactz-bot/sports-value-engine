@@ -187,7 +187,7 @@ export class Cleaner {
           ...raw.additionalContext,
         },
         confidenceFactors: {
-          dataCompleteness: this.calculateDataCompleteness(raw),
+          dataCompleteness: this.calculateDataCompleteness(raw, sport),
           h2hSampleSize: h2h.length,
           formSampleSize: Math.min(homeForm.length, awayForm.length),
         },
@@ -213,9 +213,37 @@ export class Cleaner {
       }));
   }
 
-  private calculateDataCompleteness(raw: RawStats): number {
+  // FIXED: was computing a single generic (implicitly football-shaped)
+  // completeness score for every sport, including two checks that
+  // basketball NEVER satisfies (raw.homeGoalsAvg/awayGoalsAvg — football-
+  // only top-level fields; basketball's real equivalent, homePpgFor/
+  // awayPpgFor, lives in additionalContext instead) plus a surfaceType
+  // check that's meaningless for basketball entirely. That capped
+  // basketball's completeness at 4/8 = 0.5 regardless of real data
+  // quality, before Validator's own confidenceAdjustment warnings
+  // multiplied it down further — which was silently failing
+  // tipScanner.ts's separate dataCompleteness >= 0.5 gate for nearly
+  // every basketball match, even ones with full 10-game H2H/form.
+  // Now sport-aware: basketball checks its own real fields instead of
+  // football's, and drops the surfaceType check entirely.
+  private calculateDataCompleteness(raw: RawStats, sport?: string): number {
     let score = 0;
-    
+
+    if (sport === 'basketball') {
+      const ctx = raw.additionalContext || {};
+      const checks = [
+        (ctx.homePpgFor as number ?? 0) > 0,
+        (ctx.awayPpgFor as number ?? 0) > 0,
+        (raw.h2h?.length ?? 0) >= 3,
+        (raw.homeForm?.length ?? 0) >= 3,
+        (raw.awayForm?.length ?? 0) >= 3,
+        !!raw.referee?.name,
+        !!raw.situational?.weather,
+      ];
+      checks.forEach(c => { if (c) score++ });
+      return parseFloat((score / checks.length).toFixed(2));
+    }
+
     // Mitigated 'Possibly Undefined' compiler warnings via strict nullish checks
     const checks = [
       (raw.homeGoalsAvg ?? 0) > 0,
@@ -227,7 +255,7 @@ export class Cleaner {
       !!raw.situational?.weather,
       !!(raw.situational?.surfaceType || raw.additionalContext?.surfaceType),
     ];
-    
+
     checks.forEach(c => { if (c) score++ });
     return parseFloat((score / checks.length).toFixed(2));
   }

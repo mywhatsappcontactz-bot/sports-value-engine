@@ -1,11 +1,25 @@
 // src/scrapers/football/soccerStatsFixturesScraper.ts
 //
-// Reads the "Matches" (upcoming fixtures) section embedded on each
-// league's own latest.asp?league=X page.
+// Reads upcoming fixtures embedded on each league's own latest.asp?league=X
+// page. Two source templates exist on soccerstats.com (confirmed against
+// real HTML across multiple leagues):
+//   1. "Modern" — schema.org SportsEvent microdata blocks. Real DATE, no
+//      real kickoff TIME (placeholder hour used instead).
+//   2. "Legacy" — plain <font> tags, teamstats.asp team links separated by
+//      " - ", green-colored kickoff time. Real date (no year) AND real
+//      kickoff time.
+//
+// UPDATE (2026-08-18): this file originally only implemented the modern
+// parser. Confirmed against live HTML that Spain/Germany/Turkey/Netherlands
+// currently render the LEGACY template, not modern — meaning this file was
+// returning 0 fixtures for those leagues even when real upcoming fixtures
+// were on the page the whole time. soccerStatsFallbackFixturesScraper.ts
+// already had both parsers with a try-modern-then-legacy dispatch; that
+// same pattern is ported here.
 //
 // PURPOSE: TheOddsAPI free tier (oddsClient.ts SPORT_KEYS.football)
 // does not cover Spain, Germany, Turkey, or Netherlands — meaning
-// corners tips can never fire for those leagues, since no `matches`
+// corners/goals tips can never fire for those leagues, since no `matches`
 // row can ever be created for them via the existing pipeline. This
 // scraper creates `matches` rows directly from soccerstats.com,
 // bypassing that restriction entirely. Odds-independent by design.
@@ -13,15 +27,16 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '../../core/utils/logger';
+import { fetchViaFlare } from '../shared/flareFetch';
 
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 
 export interface ScrapedFixture {
   homeTeam: string;
   awayTeam: string;
-  startTime: string; // ISO 8601, best-effort from "Sat 18 Jul 13:00" + inferred year
+  startTime: string; // ISO 8601 — see per-template notes above re: date/time accuracy
   leagueCode: string;
-  sourceMatchId: string; // from pmatch.asp's stats= param — stable per-fixture ID
+  sourceMatchId: string; // stable per-fixture ID
 }
 
 // ─── PERSISTENT FILE CACHE ────────────────────────────────────────────────────
@@ -69,116 +84,161 @@ function writeFixturesCache(leagueCode: string, fixtures: ScrapedFixture[]): voi
 
 const BASE = 'https://www.soccerstats.com';
 
-const HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-};
-
 async function fetchHtml(url: string): Promise<string> {
-  const res = await fetch(url, { headers: HEADERS });
-  if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-  return res.text();
+  return fetchViaFlare(url);
 }
 
-const MONTHS: Record<string, number> = {
-  jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
-  jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
-};
+// Placeholder-hour approach for the MODERN template only — that source only
+// gives a real DATE, not a real kickoff time. The LEGACY template gives a
+// genuinely real kickoff time, so it does NOT use this.
+const PLACEHOLDER_HOUR_UTC = 15;
 
-function inferKickoffDate(day: number, monthAbbr: string, hour: number, minute: number): string | null {
-  const month = MONTHS[monthAbbr.toLowerCase()];
-  if (month === undefined) return null;
+const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+// Legacy dates ("Wed 19 Aug") have no year. Resolve one by assuming the
+// nearest occurrence of that month/day is intended — if the resulting date
+// would be more than ~6 months in the past, it must mean NEXT year instead.
+function resolveLegacyYear(monthAbbr: string, day: number): number {
+  const monthIndex = MONTH_ABBR.indexOf(monthAbbr);
   const now = new Date();
-  let year = now.getFullYear();
+  const currentYear = now.getUTCFullYear();
 
-  let candidate = new Date(Date.UTC(year, month, day, hour, minute));
-  const diffDays = (candidate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+  if (monthIndex === -1) return currentYear;
 
-  // Dec scraped for early Jan match
-  if (diffDays < -30) {
-    year += 1;
-    candidate = new Date(Date.UTC(year, month, day, hour, minute));
-  } 
-  // Jan scraped for Dec match from prior season
-  else if (diffDays > 300) {
-    year -= 1;
-    candidate = new Date(Date.UTC(year, month, day, hour, minute));
+  const candidate = Date.UTC(currentYear, monthIndex, day);
+  const sixMonthsMs = 183 * 24 * 60 * 60 * 1000;
+
+  if (candidate < now.getTime() - sixMonthsMs) {
+    return currentYear + 1;
   }
-
-  return candidate.toISOString();
+  return currentYear;
 }
 
-function stripHtmlTags(str: string): string {
-  return str.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-}
-
-// ─── PARSER ──────────────────────────────────────────────────────────────────
-
-function parseFixtures(html: string, leagueCode: string): ScrapedFixture[] {
+// ─── PARSER: MODERN TEMPLATE (schema.org microdata) ──────────────────────────
+function parseModernFixtures(html: string, leagueCode: string): ScrapedFixture[] {
+  const seen = new Set<string>();
   const fixtures: ScrapedFixture[] = [];
 
-  // Match HTML table rows <tr>...</tr> that contain a link to pmatch.asp
-  const rowMatches = html.match(/<tr[^>]*>[\s\S]*?pmatch\.asp[\s\S]*?<\/tr>/gi) || [];
+  const blockRegex =
+    /<time itemprop="startDate" datetime="(\d{4}-\d{2}-\d{2})"><\/time>\s*<span itemprop="homeTeam"[^>]*>\s*<span itemprop="name" content="([^"]+)">\s*<\/span>\s*<\/span>\s*<span itemprop="awayTeam"[^>]*>\s*<span itemprop="name" content="([^"]+)">\s*<\/span>\s*<\/span>[\s\S]*?href='pmatch\.asp\?league=\w+&stats=([\w-]+)'/g;
 
-  for (const rowHtml of rowMatches) {
-    const cleanRowText = stripHtmlTags(rowHtml);
+  let m: RegExpExecArray | null;
+  while ((m = blockRegex.exec(html)) !== null) {
+    const [, dateStr, homeTeam, awayTeam, sourceMatchId] = m;
 
-    // 1. Extract Date/Time (e.g. "Sat 18 Jul 13:00")
-    const dateMatch = cleanRowText.match(/(\w{3})\s+(\d{1,2})\s+(\w{3})\s+(\d{1,2}):(\d{2})/);
-    if (!dateMatch) continue;
+    if (seen.has(sourceMatchId)) continue;
+    seen.add(sourceMatchId);
 
-    const [, , dayStr, monthAbbr, hourStr, minuteStr] = dateMatch;
-    const startTime = inferKickoffDate(
-      parseInt(dayStr, 10),
-      monthAbbr,
-      parseInt(hourStr, 10),
-      parseInt(minuteStr, 10)
-    );
-    if (!startTime) continue;
-
-    // 2. Extract stats match ID from href
-    const statsMatch = rowHtml.match(/href=["'][^"']*pmatch\.asp\?league=\w+&amp;stats=([\w-]+)["']/i) ||
-                       rowHtml.match(/href=["'][^"']*pmatch\.asp\?league=\w+&stats=([\w-]+)["']/i);
-    if (!statsMatch) continue;
-    const sourceMatchId = statsMatch[1];
-
-    // 3. Extract Team Names from anchors in table cells
-    const anchorMatches = Array.from(rowHtml.matchAll(/<a[^>]*href=["']([^"']*)["'][^>]*>(.*?)<\/a>/gi));
-    
-    // Filter out pmatch control links and empty strings
-    const teamNames = anchorMatches
-      .filter(m => !m[1].includes('pmatch.asp') && !m[1].includes('latest.asp'))
-      .map(m => stripHtmlTags(m[2]).trim())
-      .filter(name => name.length > 0 && !/^\d+$/.test(name));
-
-    let homeTeam = '';
-    let awayTeam = '';
-
-    if (teamNames.length >= 2) {
-      homeTeam = teamNames[0];
-      awayTeam = teamNames[1];
-    } else {
-      // Fallback: Parse from clean row text
-      const fallbackMatch = cleanRowText.match(/(\d{1,2}:\d{2})\s+([A-Za-z0-9À-ÿ .'-]+?)\s+-\s+([A-Za-z0-9À-ÿ .'-]+?)(?=\s+\||$)/);
-      if (fallbackMatch) {
-        homeTeam = fallbackMatch[2].trim();
-        awayTeam = fallbackMatch[3].trim();
-      }
-    }
-
-    if (!homeTeam || !awayTeam) continue;
+    const startTime = `${dateStr}T${String(PLACEHOLDER_HOUR_UTC).padStart(2, '0')}:00:00.000Z`;
 
     fixtures.push({
-      homeTeam,
-      awayTeam,
+      homeTeam: homeTeam.trim(),
+      awayTeam: awayTeam.trim(),
       startTime,
       leagueCode,
       sourceMatchId,
     });
   }
 
-  logger.info(`[SoccerStatsFixtures] Parsed ${fixtures.length} fixtures for ${leagueCode}`);
+  return fixtures;
+}
+
+// ─── PARSER: LEGACY TEMPLATE (plain <font> markup, no microdata) ─────────────
+// Confirmed against live Spain HTML 2026-08-18. Row shape:
+//
+//   <tr height='42' bgcolor='#ffffff'>
+//   <td width='70' ...><font ...>Wed 19 Aug</font></td>
+//   <td><a href='teamstats.asp?league=X&stats=ID1'>Home Team</a> - <a href='teamstats.asp?league=X&stats=ID2'>Away Team</a></td>
+//   <td></td>
+//   <td width='40'>
+//   <font color='green' font style='font-size:11px;'>20:00</font>
+//   </td>
+//
+// Only UPCOMING fixtures render a green-colored kickoff time in that cell —
+// completed matches show a stats/h2h link there instead, which naturally
+// excludes them from this pattern.
+function parseLegacyFixtures(html: string, leagueCode: string): ScrapedFixture[] {
+  const seen = new Set<string>();
+  const fixtures: ScrapedFixture[] = [];
+
+  // Slug character class includes '.' — some team slugs end in a period.
+  const rowRegex =
+    /<font[^>]*>(\w{3}) (\d{1,2}) (\w{3})<\/font><\/td>\s*<td><a href='teamstats\.asp\?league=\w+&stats=([\w.-]+)'>([^<]+)<\/a>\s*-\s*<a href='teamstats\.asp\?league=\w+&stats=([\w.-]+)'>([^<]+)<\/a><\/td>[\s\S]{0,600}?<font color='green'[^>]*>(\d{1,2}):(\d{2})<\/font>/g;
+
+  let m: RegExpExecArray | null;
+  while ((m = rowRegex.exec(html)) !== null) {
+    const [
+      ,
+      , // weekday abbreviation, unused
+      dayStr,
+      monthAbbr,
+      homeId,
+      homeTeam,
+      awayId,
+      awayTeam,
+      hourStr,
+      minuteStr,
+    ] = m;
+
+    const sourceMatchId = `${homeId}-${awayId}`;
+
+    // Same match can appear twice with home/away reversed elsewhere on the
+    // page — dedupe on sorted ids so both orderings collapse together.
+    const dedupKey = [homeId, awayId].sort().join('-');
+    if (seen.has(dedupKey)) continue;
+    seen.add(dedupKey);
+
+    const day = parseInt(dayStr, 10);
+    const year = resolveLegacyYear(monthAbbr, day);
+    const monthIndex = MONTH_ABBR.indexOf(monthAbbr);
+    const hour = parseInt(hourStr, 10);
+    const minute = parseInt(minuteStr, 10);
+
+    // Legacy times are on soccerstats' own display timezone (not UTC, not
+    // confirmed which zone) — treated as UTC here for consistency with the
+    // rest of the pipeline, same known limitation as other scrapers.
+    const startTime =
+      monthIndex === -1
+        ? undefined
+        : new Date(Date.UTC(year, monthIndex, day, hour, minute)).toISOString();
+
+    if (!startTime) continue;
+
+    fixtures.push({
+      homeTeam: homeTeam.trim(),
+      awayTeam: awayTeam.trim(),
+      startTime,
+      leagueCode,
+      sourceMatchId,
+    });
+  }
+
+  return fixtures;
+}
+
+// ─── PARSER: DISPATCH ─────────────────────────────────────────────────────────
+// Confirmed real structure (Sweden, 24-31 Jul 2026 fixtures) — each
+// upcoming fixture appears as a schema.org SportsEvent block, repeated
+// 3x across the page. Deduped by sourceMatchId (the pmatch.asp stats=
+// param), keeping only the first occurrence of each match.
+
+function parseFixtures(html: string, leagueCode: string): ScrapedFixture[] {
+  let fixtures = parseModernFixtures(html, leagueCode);
+
+  if (fixtures.length === 0) {
+    const legacyFixtures = parseLegacyFixtures(html, leagueCode);
+    if (legacyFixtures.length > 0) {
+      logger.info(`[SoccerStatsFixtures] Modern pattern found 0, legacy pattern found ${legacyFixtures.length} for ${leagueCode}`);
+      fixtures = legacyFixtures;
+    }
+  }
+
+  if (fixtures.length === 0) {
+    logger.warn('[SoccerStatsFixtures] Parsed 0 fixtures — possible markup change or genuinely empty schedule', { leagueCode });
+  } else {
+    logger.info(`[SoccerStatsFixtures] Parsed ${fixtures.length} fixtures for ${leagueCode}`);
+  }
+
   return fixtures;
 }
 
@@ -197,8 +257,6 @@ export async function fetchUpcomingFixtures(leagueCode: string): Promise<Scraped
 
     if (fixtures.length > 0) {
       writeFixturesCache(leagueCode, fixtures);
-    } else {
-      logger.warn('[SoccerStatsFixtures] Parsed 0 fixtures — possible markup change', { leagueCode });
     }
 
     return fixtures;
