@@ -29,7 +29,11 @@ function printTips(tips: Tip[]) {
       ? `@ ${tip.localOdds} (${tip.localBookmaker})`
       : `(no live price — fair odds ~${tip.impliedFairOdds})`;
     console.log(`   ▶ ${tip.targetSelection} (${tip.targetMarket}) ${priceText}`);
+    if (tip.targetMarket === 'team_points_expected') {
+    console.log('   Expected   : unvalidated, no line (no confidence figure)');
+  } else {
     console.log(`   Confidence : ${tip.confidence}%`);
+  }
     console.log(`   Signal     : ${tip.signal}`);
     console.log('   ' + '─'.repeat(60));
   }
@@ -93,7 +97,7 @@ async function main() {
   logger.info(`[TipsOnlyScan] NFL sync complete — ${nflResult.matchesCreated + nflResult.matchesReused} matches synced, ${nflResult.statsSaved} stats saved, ${nflResult.insufficientHistory} skipped (not enough history yet).`);
 
   logger.info('[TipsOnlyScan] Running tip scanner...');
-  const tips = runTipScanner(68);
+  const tips = runTipScanner(24);
   printTips(tips);
   await notifyTips(tips);
   logger.info(`[TipsOnlyScan] Complete — ${tips.length} tips found.`);

@@ -51,6 +51,35 @@ function runMigrations(db: Database.Database): void {
     logger.info('[DB] Migration: adding awayCornersAvg column to stats table');
     db.exec(`ALTER TABLE stats ADD COLUMN awayCornersAvg REAL`);
   }
+
+  // Migration 004: add cards/SOT columns to stats if missing.
+  // Same root cause as Migration 002/003 - schema.ts had these columns
+  // all along, but CREATE TABLE IF NOT EXISTS never alters an existing
+  // table. Confirmed missing via a real scrape.ts run (error: "no such
+  // column: homeCardsAvg") on every match's cards/SOT aggregation step.
+  const hasHomeCards = statsColumns.some((col) => col.name === 'homeCardsAvg');
+  if (!hasHomeCards) {
+    logger.info('[DB] Migration: adding homeCardsAvg column to stats table');
+    db.exec(`ALTER TABLE stats ADD COLUMN homeCardsAvg REAL`);
+  }
+
+  const hasAwayCards = statsColumns.some((col) => col.name === 'awayCardsAvg');
+  if (!hasAwayCards) {
+    logger.info('[DB] Migration: adding awayCardsAvg column to stats table');
+    db.exec(`ALTER TABLE stats ADD COLUMN awayCardsAvg REAL`);
+  }
+
+  const hasHomeSot = statsColumns.some((col) => col.name === 'homeSotAvg');
+  if (!hasHomeSot) {
+    logger.info('[DB] Migration: adding homeSotAvg column to stats table');
+    db.exec(`ALTER TABLE stats ADD COLUMN homeSotAvg REAL`);
+  }
+
+  const hasAwaySot = statsColumns.some((col) => col.name === 'awaySotAvg');
+  if (!hasAwaySot) {
+    logger.info('[DB] Migration: adding awaySotAvg column to stats table');
+    db.exec(`ALTER TABLE stats ADD COLUMN awaySotAvg REAL`);
+  }
 }
 
 

@@ -458,27 +458,35 @@ export interface GameBoxscore {
 async function fetchGameBoxscore(boxscoreUrl: string, gameId: number): Promise<GameBoxscore | null> {
   const url = `${BASE}${boxscoreUrl}`;
   const html = await fetchHtml(url);
+  const $ = cheerio.load(html);
 
-  const teamRowRegex =
-    /<a[^>]*href="\/basketball\/team\/\d+\/[\w-]+\/\d+"[^>]*>([\s\S]{0,60}?)<\/a>[\s\S]{0,50}?(\d+)[\s\S]{0,15}?(\d+)[\s\S]{0,15}?[\d.]+%[\s\S]{0,15}?(\d+)[\s\S]{0,15}?(\d+)[\s\S]{0,15}?[\d.]+%[\s\S]{0,15}?(\d+)[\s\S]{0,15}?(\d+)[\s\S]{0,15}?[\d.]+%[\s\S]{0,15}?(\d+)[\s\S]{0,15}?(\d+)[\s\S]{0,15}?[\d.]+%[\s\S]{0,15}?(\d+)[\s\S]{0,15}?(\d+)[\s\S]{0,15}?(\d+)[\s\S]{0,15}?(\d+)[\s\S]{0,15}?(\d+)[\s\S]{0,15}?(\d+)[\s\S]{0,15}?(\d+)[\s\S]{0,15}?(\d+)[\s\S]{0,15}?(\d+)[\s\S]{0,15}?(\d+)/g;
-
+  const table = $('table[aria-label="Team stats"]').first();
+  const headers = table.find('thead th').map((_i, th) => $(th).text().trim()).get();
   const teams: TeamBoxStats[] = [];
-  let m: RegExpExecArray | null;
-  while ((m = teamRowRegex.exec(html)) !== null && teams.length < 2) {
-    const [, teamRaw, , , twoM, twoA, , threeM, threeA, , ftm, fta, , orb, drb, , ast, tov, , , , pts] = m as any;
-    const team = teamRaw.replace(/<[^>]+>/g, '').trim();
-    const fgm = parseInt(twoM, 10) + parseInt(threeM, 10);
-    const fga = parseInt(twoA, 10) + parseInt(threeA, 10);
-    if (!team || isNaN(fgm) || isNaN(fga)) continue;
-    teams.push({
-      team, fgm, fga,
-      ftm: parseInt(ftm, 10), fta: parseInt(fta, 10),
-      orb: parseInt(orb, 10), drb: parseInt(drb, 10),
-      reb: parseInt(orb, 10) + parseInt(drb, 10),
-      ast: parseInt(ast, 10), tov: parseInt(tov, 10),
-      pts: parseInt(pts, 10),
-    });
-  }
+
+  table.find('tbody tr').each((_i, tr) => {
+    const $tr = $(tr);
+    const team = $tr.find('a.list-team-entry').attr('title')?.trim() || '';
+    const cells = $tr.find('td').map((_j, td) => $(td).text().trim()).get();
+    const get = (h: string): number => parseInt(cells[headers.indexOf(h)], 10);
+
+    const stats: TeamBoxStats = {
+      team,
+      fgm: get('FGM'), fga: get('FGA'),
+      ftm: get('FTM'), fta: get('FTA'),
+      orb: get('Or'), drb: get('Dr'), reb: get('Reb'),
+      ast: get('Ast'), tov: get('To'), pts: get('Pts'),
+    };
+    const threePm = get('3PM');
+    const values = Object.values(stats).filter(v => typeof v === 'number') as number[];
+    if (!team || values.some(isNaN) || isNaN(threePm)) return;
+    // Integrity check: points must equal 2*FGM + 3PM + FTM
+    if (2 * stats.fgm + threePm + stats.ftm !== stats.pts) {
+      logger.warn('[ProballersScraper] Boxscore points integrity check failed', { gameId, team });
+      return;
+    }
+    teams.push(stats);
+  });
 
   if (teams.length !== 2) {
     logger.warn('[ProballersScraper] Boxscore parse did not find exactly 2 teams', { gameId, found: teams.length });

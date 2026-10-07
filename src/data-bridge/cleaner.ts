@@ -229,6 +229,38 @@ export class Cleaner {
   private calculateDataCompleteness(raw: RawStats, sport?: string): number {
     let score = 0;
 
+    if (sport === 'hockey') {
+      // Hockey never populates goals averages, referee, weather or surface,
+      // so the football-shaped checks capped it at 3/8. Score what it has.
+      const hasGoals = (f: RawStats['homeForm']) =>
+        (f?.length ?? 0) > 0 && f.every(r => typeof r.goalsFor === 'number' && typeof r.goalsAgainst === 'number');
+      const hockeyChecks = [
+        (raw.h2h?.length ?? 0) >= 3,
+        (raw.homeForm?.length ?? 0) >= 5,
+        (raw.awayForm?.length ?? 0) >= 5,
+        hasGoals(raw.homeForm) && hasGoals(raw.awayForm),
+        raw.situational?.fatigueDays !== undefined,
+      ];
+      hockeyChecks.forEach(c => { if (c) score++ });
+      return parseFloat((score / hockeyChecks.length).toFixed(2));
+    }
+
+    if (sport === 'hockey') {
+      // Hockey never populates goals averages, referee, weather or surface,
+      // so the football-shaped checks capped it at 3/8. Score what it has.
+      const hasGoals = (f: RawStats['homeForm']) =>
+        (f?.length ?? 0) > 0 && f.every(r => typeof r.goalsFor === 'number' && typeof r.goalsAgainst === 'number');
+      const hockeyChecks = [
+        (raw.h2h?.length ?? 0) >= 3,
+        (raw.homeForm?.length ?? 0) >= 5,
+        (raw.awayForm?.length ?? 0) >= 5,
+        hasGoals(raw.homeForm) && hasGoals(raw.awayForm),
+        raw.situational?.fatigueDays !== undefined,
+      ];
+      hockeyChecks.forEach(c => { if (c) score++ });
+      return parseFloat((score / hockeyChecks.length).toFixed(2));
+    }
+
     if (sport === 'basketball') {
       const ctx = raw.additionalContext || {};
       const checks = [

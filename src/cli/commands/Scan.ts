@@ -101,7 +101,11 @@ function printTips(tips: Tip[]) {
       ? `@ \x1b[1m${tip.localOdds}\x1b[0m (${tip.localBookmaker})`
       : `\x1b[90m(no live price — fair odds ~${tip.impliedFairOdds})\x1b[0m`;
     console.log(`   \x1b[32m▶ ${tip.targetSelection}\x1b[0m ${priceText}`);
+    if (tip.targetMarket === 'team_points_expected') {
+    console.log('   Expected   : unvalidated, no line (no confidence figure)');
+  } else {
     console.log(`   Confidence : \x1b[32m${tip.confidence}%\x1b[0m`);
+  }
     console.log(`   Signal     : \x1b[33m${tip.signal}\x1b[0m`);
     console.log('   ' + '─'.repeat(60));
   }

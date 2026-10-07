@@ -1831,6 +1831,21 @@ function applyBasketballTotalsIsotonicCalibration(rawProb: number, league?: stri
   return rawProb;
 }
 
+// Proballers leagues cleared for game-total tips (held-out backtest,
+// scripts/totalsWiredBacktest.ts). Average from scripts/leagueTotals.ts.
+// Other Proballers leagues emit NO totals tip.
+const PROBALLERS_TOTALS_LEAGUES: Record<string, { avg: number }> = {
+  'CBA - China': { avg: 198.8 },
+  'ACB - Spain': { avg: 168.4 },
+  'A League - Serbia': { avg: 168 },
+  'A1 - Greece': { avg: 160.3 },
+  'Betclic Elite - France': { avg: 166.1 },
+  'Basketligan - Sweden': { avg: 169.4 },
+  'Liga Profissional - Portugal': { avg: 162.7 },
+  'Ligaen - Denmark': { avg: 170.7 },
+};
+const PROBALLERS_TOTALS_MIN_CONF = 0.75;
+
 function modelBasketball(input: ModelInput): MarketProbability[] {
   const { stats, odds } = input;
   const results: MarketProbability[] = [];
@@ -1907,11 +1922,42 @@ function modelBasketball(input: ModelInput): MarketProbability[] {
   // Method label now distinguishes all three calibration paths — useful
   // for verifying which table actually fired on a given tip, the same
   // way NBA's '-nba' suffix already let that league be checked separately.
+  // MARGIN MODEL (non-NBA, non-WNBA Proballers leagues only).
+  // Decayed point-margin difference, scaled by avg points per team-game.
+  // Fitted/held-out validated via scripts/marginIsotonicFit.ts (held-out
+  // Brier 0.1940, isotonic added nothing, so no PAVA table here).
+  // Falls through to the old path if either team has < 5 games.
+  let marginHomeProb: number | null = null;
+  if (!isNba && !isWnba) {
+    const usable = (f: FormRecord[]) => f.filter(r => r.goalsFor !== undefined && r.goalsAgainst !== undefined);
+    const hf = usable(stats.homeForm);
+    const af = usable(stats.awayForm);
+    if (hf.length >= 5 && af.length >= 5) {
+      const decMargin = (f: FormRecord[]) => {
+        let w = 0, s = 0, k = 1;
+        for (const r of f) { s += (r.goalsFor! - r.goalsAgainst!) * k; w += k; k *= 0.85; }
+        return w ? s / w : 0;
+      };
+      const avgTot = (f: FormRecord[]) => f.reduce((s, r) => s + (r.goalsFor! + r.goalsAgainst!) / 2, 0) / f.length;
+      const scale = (avgTot(hf) + avgTot(af)) / 2;
+      if (scale > 0) {
+        const m = ((decMargin(hf) - decMargin(af)) / scale) * 100;
+        marginHomeProb = Math.max(0.05, Math.min(0.95, 1 / (1 + Math.exp(-(0.46818 + 0.08169 * m)))));
+      }
+    }
+  }
+  if (marginHomeProb !== null) {
+    calibratedHomeProb = marginHomeProb;
+    calibratedAwayProb = 1 - marginHomeProb;
+  }
+
   const moneylineMethod = isNba
     ? 'elo+homecourt+isotonic-nba'
     : isWnba
       ? 'elo+homecourt+isotonic-wnba'
-      : 'elo+homecourt+isotonic-proballers';
+      : marginHomeProb !== null
+        ? 'margin-proballers'
+        : 'elo+homecourt+isotonic-proballers';
 
   results.push(
     { market: 'moneyline', selection: 'Home', trueProbability: calibratedHomeProb, method: moneylineMethod },
@@ -1953,9 +1999,11 @@ function modelBasketball(input: ModelInput): MarketProbability[] {
   // default (and ideally a dedicated fit) exists — see the NOTE above
   // NBA_TOTALS_ISOTONIC_BLOCKS for the matching caveat on the calibration
   // side of this same gap.
-  const totalLine = extractTotalLine(odds, 'totals', isNba ? 225.5 : 174.5);
-  const sd = isNba ? 12 : 10;
-  const z = (totalLine - adjustedTotal) / sd;
+  const leagueTot = (!isNba && !isWnba) ? PROBALLERS_TOTALS_LEAGUES[league] : undefined;
+  const totalLine = extractTotalLine(odds, 'totals', isNba ? 225.5 : leagueTot ? Math.round(leagueTot.avg * 2) / 2 : 174.5);
+  const sd = isNba ? 12 : leagueTot ? leagueTot.avg * 0.1054 : 10;
+  const expForZ = leagueTot ? leagueTot.avg + 1.092 * (adjustedTotal - leagueTot.avg) : adjustedTotal;
+  const z = (totalLine - expForZ) / sd;
   const rawOverProb = 1 - normalCdf(z);
 
   // Calibrate whichever side (Over/Under) is favored, then derive the
@@ -1971,9 +2019,19 @@ function modelBasketball(input: ModelInput): MarketProbability[] {
     overProb = 1 - applyBasketballTotalsIsotonicCalibration(1 - rawOverProb, league);
   }
 
-  const totalsMethod = isNba ? 'ppg+pace+normal+isotonic-nba' : 'ppg+pace+normal';
+  const totalsMethod = isNba ? 'ppg+pace+normal+isotonic-nba' : leagueTot ? 'ppg+league-avg+normal' : 'ppg+pace+normal';
 
-  if (overProb >= TOTALS_MIN_CONFIDENCE) {
+  if (!isNba && !isWnba) {
+    // Proballers: whitelisted leagues only, one side, 0.75 floor, else nothing.
+    const enough = stats.homeForm.length >= 5 && stats.awayForm.length >= 5;
+    if (leagueTot && enough) {
+      if (overProb >= PROBALLERS_TOTALS_MIN_CONF) {
+        results.push({ market: 'totals', selection: `Over ${totalLine}`, trueProbability: overProb, method: totalsMethod, rawExpectedTotal: adjustedTotal });
+      } else if ((1 - overProb) >= PROBALLERS_TOTALS_MIN_CONF) {
+        results.push({ market: 'totals', selection: `Under ${totalLine}`, trueProbability: 1 - overProb, method: totalsMethod, rawExpectedTotal: adjustedTotal });
+      }
+    }
+  } else if (overProb >= TOTALS_MIN_CONFIDENCE) {
     results.push({ market: 'totals', selection: `Over ${totalLine}`, trueProbability: overProb, method: totalsMethod, rawExpectedTotal: adjustedTotal });
   } else if ((1 - overProb) >= TOTALS_MIN_CONFIDENCE) {
     results.push({ market: 'totals', selection: `Under ${totalLine}`, trueProbability: 1 - overProb, method: totalsMethod, rawExpectedTotal: adjustedTotal });
@@ -1999,6 +2057,17 @@ function modelBasketball(input: ModelInput): MarketProbability[] {
   // Proballers/WNBA explicitly excluded (isNba only) — not backtested
   // for those leagues, would need its own separate fit given each
   // league gets its own calibration table already.
+  // PROBALLERS TEAM EXPECTED POINTS (free path, no line, no calibration).
+  // Unvalidated by design: reports the model's expected points only.
+  if (!isNba && !isWnba && stats.homeForm.length >= 5 && stats.awayForm.length >= 5) {
+    const homeExp = ((homeOffAvg + awayDefAvg) / 2) * paceMultiplier;
+    const awayExp = ((awayOffAvg + homeDefAvg) / 2) * paceMultiplier;
+    results.push(
+      { market: 'team_points_expected', selection: 'Home', trueProbability: 0.5, method: 'ppg-expected-free', rawExpectedTotal: homeExp },
+      { market: 'team_points_expected', selection: 'Away', trueProbability: 0.5, method: 'ppg-expected-free', rawExpectedTotal: awayExp },
+    );
+  }
+
   if (isNba) {
     const homeExpected = ((homeOffAvg + awayDefAvg) / 2) * paceMultiplier;
     const awayExpected = ((awayOffAvg + homeDefAvg) / 2) * paceMultiplier;

@@ -156,6 +156,10 @@ const MARKET_MIN_TIP_CONFIDENCE: Record<string, number> = {
   totals: 0.70,
   team_goals_over: 0.70,
   team_goals_under: 0.70,
+  // NBA team-split totals (see conversation, nbaTeamTotalsIsotonicFit.ts)
+  // — same 0.70 policy as every other market this session.
+  team_points_over: 0.70,
+  team_points_under: 0.70,
   // Hockey — see comment above this map for why these use their own
   // distinct names and this specific 0.65 value.
   puck_line: 0.65,
@@ -265,7 +269,7 @@ const DEFAULT_MIN_GAMES_PLAYED = 4;
 // added so far, which all correct upward (raw underclaiming).
 const ALLOWED_TIP_MARKETS: Record<string, string[]> = {
   football:   ['totals', 'corners_totals', 'corners_winner', 'team_corners_over', 'cards_totals', 'sot_totals', 'team_cards_over', 'team_sot_over', 'team_goals_over', 'team_goals_under'],
-  basketball: ['moneyline', 'totals'],
+  basketball: ['moneyline', 'totals', 'team_points_over', 'team_points_under', 'team_points_expected'],
   tennis:     ['moneyline'],
   hockey:     ['moneyline', 'puck_line', 'hockey_totals', 'team_totals'],
   baseball:   ['moneyline', 'totals'],
@@ -338,6 +342,9 @@ function buildSignal(
   // comparison line is a real market line. See rawExpectedTotal comment
   // in probabilityModel.ts for why — a fixed constant is wrong for most
   // individual games given how much real WNBA/NBA totals lines vary.
+  if (prob.market === 'team_points_expected' && prob.rawExpectedTotal !== undefined) {
+    return `Model expects ${prob.selection} team ~${prob.rawExpectedTotal.toFixed(1)} points (unvalidated, no line) — compare against your book's team total`;
+  }
   if (isFreePathBasketballTotal && prob.rawExpectedTotal !== undefined) {
     return `Model predicts this game totals ~${prob.rawExpectedTotal.toFixed(1)} points — compare against your book's actual line (no live price to cross-check here)`;
   }
@@ -446,7 +453,7 @@ function scanMatch(match: any, hoursToKickoff: number, tips: Tip[]): void {
     if (prob.market === 'moneyline' && prob.selection === 'Draw') continue;
 
     const isFreePathBasketballTotal =
-      match.sport === 'basketball' && prob.market === 'totals' && !hasRealBasketballTotalsOdds;
+      match.sport === 'basketball' && ((prob.market === 'totals' && !hasRealBasketballTotalsOdds) || prob.market === 'team_points_expected');
 
     // Free-path basketball totals tips skip the confidence floor entirely
     // — they're not claiming "this beats a real line with X% confidence"
@@ -614,7 +621,9 @@ export function runTipScanner(hoursWindow: number = 48): Tip[] {
 
   const bestPerMatchMarket = new Map<string, Tip>();
   for (const tip of tips) {
-    const key = `${tip.matchId}:${tip.targetMarket}`;
+    const key = tip.targetMarket === 'team_points_expected'
+      ? `${tip.matchId}:${tip.targetMarket}:${tip.targetSelection}`
+      : `${tip.matchId}:${tip.targetMarket}`;
     const existing = bestPerMatchMarket.get(key);
     if (!existing || tip.confidence > existing.confidence) {
       bestPerMatchMarket.set(key, tip);
