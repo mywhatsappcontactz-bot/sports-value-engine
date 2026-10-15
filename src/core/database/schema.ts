@@ -95,6 +95,8 @@ export interface Stats {
   awayCardsAvg?: number;
   homeSotAvg?: number;
   awaySotAvg?: number;
+  homeShotsAvg?: number;
+  awayShotsAvg?: number;
   additionalContext: Record<string, unknown>;
   confidenceFactors: ConfidenceFactors;
   lastUpdated?: string;

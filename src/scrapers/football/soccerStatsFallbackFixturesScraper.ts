@@ -61,27 +61,30 @@ export const FALLBACK_LEAGUE_MAP: Record<string, string> = {
   'Allsvenskan - Sweden': 'sweden',
   'Eliteserien - Norway': 'norway',
   'League of Ireland': 'ireland',
-  'Brazil Serie B': 'brazil2',
+  'Brazil S\u00e9rie B': 'brazil2',
   'China Super League': 'china',
   'Serie A - Italy': 'italy',
-  'Brazil Serie A': 'brazil',
+  'Brazil S\u00e9rie A': 'brazil',
   'K League 1': 'southkorea',
-  'Superliga - Denmark': 'denmark',
+  'Denmark Superliga': 'denmark',
   'Bulgaria Professional League': 'bulgaria',
   'Scotland Premiership': 'scotland',
   'Belgium First Division': 'belgium',
-  'Austria Bundesliga': 'austria',
+  'Austrian Football Bundesliga': 'austria',
   'Croatia 1.HNL': 'croatia',
   'Switzerland Super League': 'switzerland',
-  'England Championship': 'england2',
+  'Championship': 'england2',
   'England League 1': 'england3',
   'England League 2': 'england4',
   'Czech Republic Liga': 'czechrepublic',
   'EPL': 'england',
   'Russia Premier League': 'russia',
-  'Poland Ekstraklasa': 'poland',
+  'Ekstraklasa - Poland': 'poland',
   'Ukraine Premier League': 'ukraine',
   'MLS': 'usa',
+  'Saudi Pro League': 'saudiarabia',
+  'Ligue 1 - France': 'france',
+  'Portugal - Liga Portugal': 'portugal',
 };
 
 // ─── PERSISTENT FILE CACHE ────────────────────────────────────────────────────
@@ -289,8 +292,44 @@ function parseLegacyFixtures(html: string, leagueCode: string): FallbackFixture[
 }
 
 // ─── PARSER: DISPATCH ─────────────────────────────────────────────────────────
+// Third template: date and kickoff in separate <font> tags split by <br>,
+// teams as plain text split by <br>, then a pmatch.asp link (England, 2026-10).
+function parseRowFixtures(html: string, leagueCode: string): FallbackFixture[] {
+  const seen = new Set<string>();
+  const fixtures: FallbackFixture[] = [];
+
+  const rowRegex =
+    /<font[^>]*>\w{3} (\d{1,2}) (\w{3})<\/font>\s*<br>\s*<font[^>]*color:green[^>]*>(\d{1,2}):(\d{2})<\/font>\s*<\/td>\s*<td[^>]*>([^<]+)<br>([^<]+)<\/td>[\s\S]{0,600}?href='pmatch\.asp\?league=\w+&stats=([\w.-]+)'/g;
+
+  let m: RegExpExecArray | null;
+  while ((m = rowRegex.exec(html)) !== null) {
+    const [, dayStr, monthAbbr, hourStr, minuteStr, homeTeam, awayTeam, sourceMatchId] = m;
+    if (seen.has(sourceMatchId)) continue;
+    seen.add(sourceMatchId);
+
+    const monthIndex = MONTH_ABBR.indexOf(monthAbbr);
+    if (monthIndex === -1) continue;
+    const day = parseInt(dayStr, 10);
+    const year = resolveLegacyYear(monthAbbr, day);
+    const startTime = new Date(
+      Date.UTC(year, monthIndex, day, parseInt(hourStr, 10), parseInt(minuteStr, 10)),
+    ).toISOString();
+
+    fixtures.push({
+      homeTeam: homeTeam.trim(),
+      awayTeam: awayTeam.trim(),
+      startTime,
+      leagueCode,
+      sourceMatchId,
+    });
+  }
+
+  return fixtures;
+}
+
 function parseFixtures(html: string, leagueCode: string): FallbackFixture[] {
   let fixtures = parseModernFixtures(html, leagueCode);
+  if (fixtures.length === 0) fixtures = parseRowFixtures(html, leagueCode);
 
   if (fixtures.length === 0) {
     const legacyFixtures = parseLegacyFixtures(html, leagueCode);

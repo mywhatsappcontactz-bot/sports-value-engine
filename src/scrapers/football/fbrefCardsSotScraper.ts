@@ -15,6 +15,7 @@ export interface MatchLogRow {
   cardsYellow?: number;
   cardsRed?: number;
   shotsOnTarget?: number;
+  shots?: number;
 }
 
 // ─── TEAM FBREF IDS — RESTRUCTURED (see conversation) ───────────────
@@ -205,6 +206,151 @@ export const TEAM_FBREF_IDS: Record<string, Record<string, string>> = {
     'casa-pia': 'b20a2b76',
     'estoril': '00c41b75',
   },
+
+  // ── TURKEY_SUPER_LIG — discovered via fbrefDiscover.ts, not yet spot-checked.
+  TURKEY_SUPER_LIG: {
+    'amedspor': '3408088c',
+    'galatasaray': 'ecd11ca2',
+    'besiktas': '0f9294bd',
+    'kocaelispor': '37fcbb73',
+    'alanyaspor': '076128d7',
+    'trabzonspor': 'c8ad3091',
+    'kasimpasa': 'd6ffefd1',
+    'fenerbahce': 'ae1e2d7d',
+    'rizespor': 'f622e63c',
+    'gaziantep': '7c81865f',
+    'istanbul-basaksehir': 'bff39cf5',
+    'erzurum-bb': '7637881d',
+    'genclerbirligi': 'f6d47c93',
+    'yeni-corumspor': '3dedb4c2',
+    'konyaspor': '5700c020',
+    'samsunspor': '77356e9e',
+    'goztepe': '7455853d',
+    'eyupspor': 'e83a6881',
+  },
+
+  // ── SCOTLAND_PREMIERSHIP — discovered via fbrefDiscover.ts, not yet spot-checked.
+  SCOTLAND_PREMIERSHIP: {
+    'celtic': 'b81aa4fa',
+    'rangers': '86b7acd2',
+    'heart-of-midlothian': '7c77b0bc',
+    'dundee': '00032902',
+    'st-mirren': '3568ad4c',
+    'st-johnstone': 'dd289621',
+    'aberdeen': '8bbab7cf',
+    'motherwell': '9d04848a',
+    'dundee-united': 'e986ece7',
+    'hibernian': 'f3aacc58',
+    'falkirk': '7e3a56c4',
+    'kilmarnock': '25f1fd26',
+  },
+
+  // ── BELGIUM_PRO_LEAGUE — discovered via fbrefDiscover.ts, not yet spot-checked.
+  POLAND_EKSTRAKLASA: {
+    'gornik-zabrze': 'd2f21b23',
+    'legia-warsaw': 'a73408a7',
+    'lech-poznan': 'fdba14df',
+    'wisla-krakow': '162ec40d',
+    'pogon-szczecin': '8a3f95b9',
+    'zaglebie-lubin': '3458af25',
+    'korona-kielce': 'eae6c5ae',
+    'piast-gliwice': 'ad2649a5',
+    'katowice': '6c2f28fd',
+    'jagiellonia': '4f7b798d',
+    'wisla-plock': 'fe423bcc',
+    'widzew-lodz': '2232debd',
+    'radomiak-radom': '3b58a049',
+    'cracovia': '6e7c9b0b',
+    'slask-wroclaw': 'c582b57f',
+    'motor-lublin': 'dd772731',
+    'wieczysta-krakow': '880f095c',
+    'rakow-czestochowa': 'e0b3aa47',
+  },
+
+  SWITZERLAND_SUPER_LEAGUE: {
+    'lugano': '4dcf77da',
+    'young-boys': '4b682260',
+    'sion': '2eaa8331',
+    'basel': 'd3d9424a',
+    'st-gallen': 'cdaf4e6d',
+    'luzern': 'd423a378',
+    'zurich': '22a5a99c',
+    'servette-fc': '6400d626',
+    'thun': '9ae758c2',
+    'grasshopper': '7b66a29c',
+    'vaduz': 'b1b46fc3',
+    'lausanne-sport': '2864c5a0',
+  },
+
+  DENMARK_SUPERLIGA: {
+    'fc-copenhagen': '18050b20',
+    'midtjylland': '3c4fb635',
+    'viborg': 'ede58dea',
+    'nordsjaelland': '1850e3f9',
+    'brondby': 'ab75e049',
+    'horsens': '60e145ad',
+    'silkeborg': 'b0dd06cd',
+    'randers': 'd06bc460',
+    'odense': '3f5150ef',
+    'lyngby': '713d0672',
+    'agf': '9ae196bd',
+    'sonderjyske': '7700eac9',
+  },
+
+  AUSTRIA_BUNDESLIGA: {
+    'rapid-wien': '912e4c40',
+    'red-bull-salzburg': '50f2a074',
+    'lask': 'd20821dd',
+    'sturm-graz': '3f4fe568',
+    'ried': '8bb8811f',
+    'hartberg': 'f6d9c820',
+    'wsg-tirol': 'c63dd2d5',
+    'sc-austria-lustenau': 'b43d1132',
+    'grazer-ak': '5750fe3b',
+    'austria-wien': 'ee0bccc5',
+    'rz-pellets-wac': '426658a6',
+    'rheindorf-altach': '80beba99',
+  },
+
+  RUSSIA_PREMIER_LEAGUE: {
+    'krasnodar': 'fa11a9cc',
+    'dynamo-moscow': '541a280b',
+    'cska-moscow': 'f0c0c2c2',
+    'spartak-moscow': '8c635914',
+    'zenit': '98ce363d',
+    'rubin-kazan': '5625a7da',
+    'dynamo-makhachkala': 'f7823485',
+    'baltika-kaliningrad': 'fcebebd2',
+    'samara': '483ffd93',
+    'akhmat-grozny': '8aa1135c',
+    'orenburg': '555a9123',
+    'rostov': 'd60423ef',
+    'akron-tolyatti': '9e9e1971',
+    'lokomotiv-moscow': '5a8dc328',
+    'fk-rodina-moskva': 'f2e1ed0f',
+    'fakel-voronezh': '7617f493',
+  },
+
+  BELGIUM_PRO_LEAGUE: {
+    'union-sg': 'e14f61a5',
+    'gent': '51e5a603',
+    'club-brugge': 'f1e6c5f1',
+    'charleroi': '140e320a',
+    'anderlecht': '08ad393c',
+    'zulte-waregem': 'ecd34b98',
+    'standard-liege': '33c6b26e',
+    'westerlo': '57b6cfb8',
+    'beveren': '0217e4d8',
+    'genk': '1e972a99',
+    'sint-truiden': '80328a1e',
+    'lommel': '6f98eba9',
+    'antwerp': 'c2e6b53b',
+    'la-louviere': '11474078',
+    'oh-leuven': '27e981a3',
+    'kortrijk': '77193015',
+    'cercle-brugge': 'e8d2adc4',
+    'mechelen': '09f00144',
+  },
 };
 
 // ─── DOMESTIC LEAGUE FILTER ─────────────────────────────────────
@@ -229,6 +375,14 @@ export const DOMESTIC_LEAGUE_COMP_NAMES: Record<string, string> = {
   LIGUE_1: 'Ligue 1',
   EREDIVISIE: 'Eredivisie',
   PRIMEIRA_LIGA: 'Primeira Liga',
+  TURKEY_SUPER_LIG: 'Süper Lig',
+  SCOTLAND_PREMIERSHIP: 'Premiership',
+  BELGIUM_PRO_LEAGUE: 'Pro League',
+  POLAND_EKSTRAKLASA: 'Ekstraklasa',
+  SWITZERLAND_SUPER_LEAGUE: 'Super Lg',
+  DENMARK_SUPERLIGA: 'Danish Superliga',
+  AUSTRIA_BUNDESLIGA: 'Bundesliga',
+  RUSSIA_PREMIER_LEAGUE: 'RPL',
 };
 
 // ─── MANUAL COOKIE SESSION ─────────────────────────────────────
@@ -361,6 +515,7 @@ export async function scrapeTeamSotMatchlog(
     const venueRaw = $row.find('[data-stat="venue"]').text().trim();
     const comp = $row.find('[data-stat="comp"]').text().trim();
     const sotRaw = $row.find('[data-stat="shots_on_target"]').text().trim();
+    const shotsRaw = $row.find('[data-stat="shots"]').text().trim();
 
     if (!date) return;
 
@@ -370,6 +525,7 @@ export async function scrapeTeamSotMatchlog(
       venue: (venueRaw as 'Home' | 'Away' | 'Neutral') || 'Neutral',
       comp,
       shotsOnTarget: sotRaw ? parseInt(sotRaw, 10) : undefined,
+      shots: shotsRaw ? parseInt(shotsRaw, 10) : undefined,
     });
   });
 

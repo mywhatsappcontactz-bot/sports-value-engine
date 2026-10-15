@@ -51,8 +51,20 @@ function writeCache(leagueCode: string, slugs: Record<string, string>): void {
   }
 }
 
+function foldAccents(s: string): string {
+  return s
+    .replace(/\u00df/g, 'ss')
+    .replace(/[\u0142\u0141]/g, 'l')
+    .replace(/[\u00f8\u00d8]/g, 'o')
+    .replace(/[\u0111\u0110]/g, 'd')
+    .replace(/[\u00e6\u00c6]/g, 'ae')
+    .replace(/[\u0153\u0152]/g, 'oe')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
 function normalize(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+  return foldAccents(name).toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
 }
 
 async function fetchSlugMap(leagueCode: string): Promise<Record<string, string>> {
@@ -71,6 +83,28 @@ const linkRegex = /href='teamstats\.asp\?league=\w+&stats=([\w.-]+)'>([^<]+)<\/a
   return slugs;
 }
 
+// DB (football-data style) name -> soccerstats name, both normalized.
+// Needed where soccerstats abbreviates and neither string contains the other.
+const TEAM_NAME_ALIASES: Record<string, string> = {
+  'atletico mineiro': 'atletico mg',
+  'atletico paranaense': 'athletico pr',
+  'america mineiro': 'america mg',
+  'botafogosp': 'botafogo sp',
+  'clube de regatas brasil': 'crb',
+  'newcastle united': 'newcastle utd',
+  'queens park rangers': 'qp rangers',
+  'sheffield united': 'sheffield utd',
+  'west ham united': 'west ham utd',
+  'manchester united': 'manchester utd',
+  'leeds united': 'leeds utd',
+  'nottingham forest': 'nottm forest',
+  'cambridge united': 'cambridge utd',
+  'oxford united': 'oxford utd',
+  'colchester united': 'colchester utd',
+  'sheffield wednesday': 'sheffield wed',
+    'nordic united fc': 'united nordic',
+};
+
 /**
  * Returns the teamstats.asp slug for a team name in a given league,
  * or null if not found (e.g. name mismatch, or league not covered).
@@ -83,6 +117,8 @@ export async function findTeamSlug(leagueCode: string, teamName: string): Promis
   }
 
   const key = normalize(teamName);
+  const aliased = TEAM_NAME_ALIASES[key];
+  if (aliased && slugs[aliased]) return slugs[aliased];
   if (slugs[key]) return slugs[key];
 
   // fuzzy fallback, same approach as other scrapers tonight
@@ -90,5 +126,6 @@ export async function findTeamSlug(leagueCode: string, teamName: string): Promis
     if (name.includes(key) || key.includes(name)) return slug;
   }
 
+  logger.warn('[TeamSlugs] No slug match', { leagueCode, teamName, normalized: key });
   return null;
 }

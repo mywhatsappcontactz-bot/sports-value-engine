@@ -80,6 +80,13 @@ function runMigrations(db: Database.Database): void {
     logger.info('[DB] Migration: adding awaySotAvg column to stats table');
     db.exec(`ALTER TABLE stats ADD COLUMN awaySotAvg REAL`);
   }
+
+  for (const c of ['homeShotsAvg', 'awayShotsAvg']) {
+    if (!statsColumns.some((col) => col.name === c)) {
+      logger.info(`[DB] Migration: adding ${c} column to stats table`);
+      db.exec(`ALTER TABLE stats ADD COLUMN ${c} REAL`);
+    }
+  }
 }
 
 

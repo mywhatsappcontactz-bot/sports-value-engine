@@ -53,9 +53,20 @@ const GENERIC_TEAM_WORDS = new Set([
   'deportivo', 'cf',
 ]);
 
+function foldAcc(s: string): string {
+  return s
+    .replace(/\u00df/g, 'ss')
+    .replace(/[\u0142\u0141]/g, 'l')
+    .replace(/[\u00f8\u00d8]/g, 'o')
+    .replace(/[\u0111\u0110]/g, 'd')
+    .replace(/[\u00e6\u00c6]/g, 'ae')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
 function teamNamesLikelyMatch(a: string, b: string): boolean {
-  const na = normalize(a);
-  const nb = normalize(b);
+  const na = normalize(foldAcc(a));
+  const nb = normalize(foldAcc(b));
   if (na === nb) return true;
   if (na.includes(nb) || nb.includes(na)) return true;
 
@@ -78,13 +89,13 @@ function findExistingMatch(
   awayTeam: string,
   dateISO: string,
 ): string | null {
-  const dayStart = dateISO.split('T')[0];
+  
 
   const candidates = db.prepare(`
     SELECT id, homeTeam, awayTeam FROM matches
     WHERE sport = 'football'
-    AND date(startTime) = date(?)
-  `).all(dayStart) as { id: string; homeTeam: string; awayTeam: string }[];
+    AND abs(julianday(startTime) - julianday(?)) <= 1
+  `).all(dateISO) as { id: string; homeTeam: string; awayTeam: string }[];
 
   const match = candidates.find(
     (c) =>

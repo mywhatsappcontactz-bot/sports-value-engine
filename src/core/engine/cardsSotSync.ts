@@ -1,3 +1,4 @@
+import { buildShotsSeasonTotals, ShotsLeagueData } from './cardsSotSeasonTotals';
 // src/core/engine/cardsSotSync.ts
 //
 // Orchestrates the full cards/SOT pipeline for one league: fetches every
@@ -54,6 +55,7 @@ import { logger } from '../utils/logger';
 export interface CardsSotLeagueData {
   cardData: CardLeagueData;
   sotData: SotLeagueData;
+  shotsData: ShotsLeagueData;
 }
 
 /**
@@ -97,6 +99,7 @@ export async function syncCardsSotForLeague(
 
   const cardData = buildCardSeasonTotals(cardRows, leagueName);
   const sotData = buildSotSeasonTotals(sotRows, leagueName);
+  const shotsData = buildShotsSeasonTotals(sotRows, leagueName);
 
   logger.info('[CardsSotSync] Cards/SOT sync complete', {
     season,
@@ -105,5 +108,6 @@ export async function syncCardsSotForLeague(
     teamsWithSotData: sotData.teams.size,
   });
 
-  return { cardData, sotData };
+  logger.info('[CardsSotSync] Shots teams', { teamsWithShotsData: shotsData.teams.size });
+  return { cardData, sotData, shotsData };
 }

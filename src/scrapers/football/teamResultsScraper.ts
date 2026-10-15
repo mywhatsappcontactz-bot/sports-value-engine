@@ -68,6 +68,45 @@ function inferDate(day: number, monthAbbr: string): string {
   return candidate.toISOString().split('T')[0];
 }
 
+function normIdent(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+// True when the page <title> belongs to the team we asked for.
+// 1) old test: title contains our team name
+// 2) title's team name (text before " statistics") matches the slug's name part
+function pageIsForTeam(pageTitle: string, teamName: string, teamStatsSlug: string): boolean {
+  if (pageTitle.includes(teamName)) return true;
+  const head = pageTitle.split(/\s+statistics/i)[0];
+  const slugName = teamStatsSlug.replace(/^u\d+-/, '');
+  const nHead = normIdent(head);
+  const nSlug = normIdent(slugName);
+  if (!nHead || !nSlug) return false;
+  return nHead === nSlug || nHead.startsWith(nSlug) || nSlug.startsWith(nHead);
+}
+
+function normTeam(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+// True when a title name from the page refers to the team we asked for:
+// exact DB name, or the slug's name part (u7573-blackburn -> blackburn).
+function sameTeam(pageName: string, teamName: string, teamStatsSlug: string): boolean {
+  const p = normTeam(pageName);
+  const t = normTeam(teamName);
+  const s = normTeam(teamStatsSlug.replace(/^u\d+-/, ''));
+  if (!p) return false;
+  return p === t || p === s;
+}
+
 /**
  * Fetches a team's page and returns their recent match results as
  * FormRecord[] — same shape fcStatsScraper.ts already produces.
@@ -85,7 +124,7 @@ export async function fetchTeamResults(
   // the team we asked for before parsing anything.
   const titleTagMatch = /<title>([^<]*)<\/title>/.exec(html);
   const pageTitle = titleTagMatch ? titleTagMatch[1] : '';
-  if (pageTitle && !pageTitle.includes(teamName)) {
+  if (pageTitle && !pageIsForTeam(pageTitle, teamName, teamStatsSlug)) {
     logger.warn('[TeamResults] Page identity mismatch — soccerstats served the wrong team page', {
       leagueCode,
       teamStatsSlug,
@@ -122,8 +161,8 @@ export async function fetchTeamResults(
     const homeScore = parseInt(homeScoreStr, 10);
     const awayScore = parseInt(awayScoreStr, 10);
 
-    const isHome = homeTeam.trim() === teamName;
-    const isAway = awayTeam.trim() === teamName;
+    const isHome = sameTeam(homeTeam, teamName, teamStatsSlug);
+    const isAway = sameTeam(awayTeam, teamName, teamStatsSlug);
     if (!isHome && !isAway) continue; // shouldn't happen, but skip safely
 
     const goalsFor = isHome ? homeScore : awayScore;

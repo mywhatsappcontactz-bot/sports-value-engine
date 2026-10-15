@@ -1,3 +1,4 @@
+import { ShotsLeagueData, findShotsTeam } from './cardsSotSeasonTotals';
 // src/core/engine/cardsSotAggregator.ts
 //
 // Computes expected cards and expected shots-on-target (home/away) for a
@@ -169,6 +170,10 @@ export async function aggregateCardsForMatch(
   const leagueAvg = computeLeagueCardAverages(leagueData);
   const expected = computeExpectedCards(homeStats, awayStats, leagueAvg);
 
+  if (!Number.isFinite(expected.homeCardsAvg) || expected.homeCardsAvg < 0.3 || expected.homeCardsAvg > 6 || !Number.isFinite(expected.awayCardsAvg) || expected.awayCardsAvg < 0.3 || expected.awayCardsAvg > 6) {
+    logger.warn('[CardsAggregator] Implausible expected cards — not saved', { matchId, homeTeamName, awayTeamName, ...expected });
+    return null;
+  }
   repository.updateCardsAvg(matchId, expected.homeCardsAvg, expected.awayCardsAvg);
 
   logger.info('[CardsAggregator] Wrote expected cards', {
@@ -211,6 +216,10 @@ export async function aggregateSotForMatch(
   const leagueAvg = computeLeagueSotAverages(leagueData);
   const expected = computeExpectedSot(homeStats, awayStats, leagueAvg);
 
+  if (!Number.isFinite(expected.homeSotAvg) || expected.homeSotAvg < 1 || expected.homeSotAvg > 12 || !Number.isFinite(expected.awaySotAvg) || expected.awaySotAvg < 1 || expected.awaySotAvg > 12) {
+    logger.warn('[SotAggregator] Implausible expected SOT — not saved', { matchId, homeTeamName, awayTeamName, ...expected });
+    return null;
+  }
   repository.updateSotAvg(matchId, expected.homeSotAvg, expected.awaySotAvg);
 
   logger.info('[SotAggregator] Wrote expected SOT', {
@@ -221,4 +230,31 @@ export async function aggregateSotForMatch(
   });
 
   return expected;
+}
+
+export async function aggregateShotsForMatch(
+  repository: Repository, leagueData: ShotsLeagueData, matchId: string,
+  leagueName: string, homeTeamName: string, awayTeamName: string,
+): Promise<{ homeShotsAvg: number; awayShotsAvg: number } | null> {
+  const h = findShotsTeam(leagueData, homeTeamName);
+  const a = findShotsTeam(leagueData, awayTeamName);
+  if (!h || !a) {
+    logger.warn('[ShotsAggregator] Could not match team(s) to shots data', { leagueName, matchId, homeTeamName, awayTeamName, homeMatched: !!h, awayMatched: !!a });
+    return null;
+  }
+  const ts = [...leagueData.teams.values()];
+  const mean = (f: (t: typeof ts[number]) => number) => ts.reduce((s, t) => s + f(t), 0) / ts.length;
+  const lHF = mean(t => t.homeShotsFor), lHA = mean(t => t.homeShotsAgainst);
+  const lAF = mean(t => t.awayShotsFor), lAA = mean(t => t.awayShotsAgainst);
+  if (!(lHF > 0 && lHA > 0 && lAF > 0 && lAA > 0)) return null;
+  const homeShotsAvg = lHF * (h.homeShotsFor / lHF) * (a.awayShotsAgainst / lAA);
+  const awayShotsAvg = lAF * (a.awayShotsFor / lAF) * (h.homeShotsAgainst / lHA);
+  const bad = (v: number) => !Number.isFinite(v) || v < 4 || v > 22;
+  if (bad(homeShotsAvg) || bad(awayShotsAvg)) {
+    logger.warn('[ShotsAggregator] Implausible expected shots - not saved', { matchId, homeTeamName, awayTeamName, homeShotsAvg, awayShotsAvg });
+    return null;
+  }
+  repository.updateShotsAvg(matchId, homeShotsAvg, awayShotsAvg);
+  logger.info('[ShotsAggregator] Wrote expected shots', { matchId, homeTeamName, awayTeamName, homeShotsAvg, awayShotsAvg });
+  return { homeShotsAvg, awayShotsAvg };
 }

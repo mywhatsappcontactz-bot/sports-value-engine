@@ -9,7 +9,7 @@ import { syncAllFallbackLeagues } from '../../data-bridge/soccerStatsFallbackFix
 import { syncAllConfiguredLeagues } from '../../data-bridge/soccerStatsFixturesSync';
 import { aggregateCornersForMatch } from '../../core/engine/cornersAggregator';
 import { syncCardsSotForLeague } from '../../core/engine/cardsSotSync';
-import { aggregateCardsForMatch, aggregateSotForMatch } from '../../core/engine/cardssotaggregator';
+import { aggregateCardsForMatch, aggregateSotForMatch, aggregateShotsForMatch } from '../../core/engine/cardssotaggregator';
 import { Cleaner } from '../../data-bridge/cleaner';
 import { FormRecord } from '../../core/database/schema';
 import { v4 as uuidv4 } from 'uuid';
@@ -86,8 +86,16 @@ const LEAGUE_NAME_TO_CARDS_SOT_KEY: Record<string, string> = {
   'Bundesliga - Germany': 'BUNDESLIGA',
   'Serie A - Italy': 'SERIE_A',
   'Ligue 1 - France': 'LIGUE_1',
-  'Dutch Eredivisie': 'EREDIVISIE',
+  'Netherlands - Eredivisie': 'EREDIVISIE',
   'Portugal - Liga Portugal': 'PRIMEIRA_LIGA',
+  'Turkey': 'TURKEY_SUPER_LIG',
+  'Scotland Premiership': 'SCOTLAND_PREMIERSHIP',
+  'Belgium First Division': 'BELGIUM_PRO_LEAGUE',
+  'Ekstraklasa - Poland': 'POLAND_EKSTRAKLASA',
+  'Switzerland Super League': 'SWITZERLAND_SUPER_LEAGUE',
+  'Denmark Superliga': 'DENMARK_SUPERLIGA',
+  'Austrian Football Bundesliga': 'AUSTRIA_BUNDESLIGA',
+  'Russia Premier League': 'RUSSIA_PREMIER_LEAGUE',
 };
 
 // TODO: derive dynamically once a real season-detection convention
@@ -157,7 +165,7 @@ async function scrapeFootball(): Promise<void> {
   // requests run up front, before the slow fixture syncs and soccerstats
   // fetches. Results are cached here and reused by the per-league loop below.
   const prefetchedCardsSot = new Map<string, Awaited<ReturnType<typeof syncCardsSotForLeague>>>();
-  for (const key of Object.values(LEAGUE_NAME_TO_CARDS_SOT_KEY)) {
+  for (const key of (process.env.SKIP_FBREF === '1' ? [] : Object.values(LEAGUE_NAME_TO_CARDS_SOT_KEY))) {
     try {
       logger.info('[Scrape] Prefetching cards/SOT (FBref first)', { key });
       prefetchedCardsSot.set(key, await syncCardsSotForLeague(CARDS_SOT_SEASON, key));
@@ -190,10 +198,13 @@ async function scrapeFootball(): Promise<void> {
   let totalCornersSaved = 0;
   let totalCardsSaved = 0;
   let totalSotSaved = 0;
+  let totalShotsSaved = 0;
   let totalFailed = 0;
   let totalH2HFound = 0;
 
+  const onlyLeagues = process.argv[3] ? process.argv[3].split(',').map(s => s.trim()).filter(Boolean) : null;
   for (const leagueName of FOOTBALL_LEAGUES) {
+    if (onlyLeagues && !onlyLeagues.includes(leagueName)) continue;
     const soccerStatsCode = SOCCERSTATS_LEAGUE_MAP[leagueName];
     logger.info(`[Scrape] Fetching league stats via soccerstats.com`, { leagueName, soccerStatsCode });
 
@@ -438,6 +449,11 @@ async function scrapeFootball(): Promise<void> {
               match.awayTeam,
             );
             if (sotResult) totalSotSaved++;
+
+            const shotsResult = await aggregateShotsForMatch(
+              repository, cardsSotLeagueData.shotsData, match.id, leagueName, match.homeTeam, match.awayTeam,
+            );
+            if (shotsResult) totalShotsSaved++;
           } catch (cardsSotErr: any) {
             logger.warn(`[Scrape] Cards/SOT aggregation failed — continuing without cards/SOT data`, {
               match: `${match.homeTeam} vs ${match.awayTeam}`,
@@ -459,7 +475,7 @@ async function scrapeFootball(): Promise<void> {
   }
 
   logger.info(`[Scrape] Complete`, { totalStatsSaved, totalCornersSaved, totalCardsSaved, totalSotSaved, totalFailed, totalH2HFound });
-  console.log(`\nScrape complete — stats saved: ${totalStatsSaved}, corners saved: ${totalCornersSaved}, cards saved: ${totalCardsSaved}, SOT saved: ${totalSotSaved}, failed: ${totalFailed}, matches with H2H: ${totalH2HFound}`);
+  console.log(`\nScrape complete — stats saved: ${totalStatsSaved}, corners saved: ${totalCornersSaved}, cards saved: ${totalCardsSaved}, SOT saved: ${totalSotSaved}, shots saved: ${totalShotsSaved}, failed: ${totalFailed}, matches with H2H: ${totalH2HFound}`);
 }
 
 const sport = process.argv[2] || 'football';

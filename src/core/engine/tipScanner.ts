@@ -61,6 +61,14 @@ export interface Tip {
 }
 
 // ─── CONFIG ─────────────────────────────────────────────────────────────────
+
+// Sports temporarily switched off. scanMatch() returns immediately for any
+// sport listed here, before any stats/odds queries or model calls run.
+// Remove an entry to re-enable that sport — no other config needs to change.
+// Hockey disabled for the meantime; all hockey thresholds/calibration below
+// are left intact.
+const DISABLED_SPORTS = new Set<string>(['hockey']);
+
 const MIN_TIP_CONFIDENCE: Record<string, number> = {
   football: 0.80,
   basketball: 0.70, // lowered from 0.80 on 2026-08-02 — backtest across 14,168
@@ -148,6 +156,8 @@ const MARKET_MIN_TIP_CONFIDENCE: Record<string, number> = {
   sot_totals: 0.70,
   team_cards_over: 0.70,
   team_sot_over: 0.70,
+  shots_totals: 0.70,
+  team_shots_over: 0.70,
   // Goals (see conversation, goalsTotalsIsotonicFit.ts +
   // goalsTotalsBacktest.ts) — totals was previously inheriting
   // football's flat 0.80 default; explicit 0.70 now, consistent with
@@ -268,7 +278,7 @@ const DEFAULT_MIN_GAMES_PLAYED = 4;
 // table corrects DOWNWARD, unlike every other hockey/football market
 // added so far, which all correct upward (raw underclaiming).
 const ALLOWED_TIP_MARKETS: Record<string, string[]> = {
-  football:   ['totals', 'corners_totals', 'corners_winner', 'team_corners_over', 'cards_totals', 'sot_totals', 'team_cards_over', 'team_sot_over', 'team_goals_over', 'team_goals_under'],
+  football:   ['totals', 'corners_totals', 'corners_winner', 'team_corners_over', 'cards_totals', 'sot_totals', 'team_cards_over', 'team_sot_over', 'team_goals_over', 'team_goals_under', 'shots_totals', 'team_shots_over'],
   basketball: ['moneyline', 'totals', 'team_points_over', 'team_points_under', 'team_points_expected'],
   tennis:     ['moneyline'],
   hockey:     ['moneyline', 'puck_line', 'hockey_totals', 'team_totals'],
@@ -290,7 +300,9 @@ function isAllowedTipMarket(sport: string, market: string): boolean {
 function buildStatsRow(matchId: string, sport: string): any {
   return db.prepare(`
     SELECT h2h, homeForm, awayForm, referee, situational, additionalContext, confidenceFactors,
-           homeGoalsAvg, awayGoalsAvg, homeCornersAvg, awayCornersAvg
+           homeGoalsAvg, awayGoalsAvg, homeCornersAvg, awayCornersAvg,
+           homeCardsAvg, awayCardsAvg, homeSotAvg, awaySotAvg,
+           homeShotsAvg, awayShotsAvg
     FROM stats
     WHERE matchId = ? AND sport = ?
   `).get(matchId, sport);
@@ -309,6 +321,12 @@ function parseStats(row: any): any {
     awayGoalsAvg:       row.awayGoalsAvg ?? undefined,
     homeCornersAvg:     row.homeCornersAvg ?? undefined,
     awayCornersAvg:     row.awayCornersAvg ?? undefined,
+    homeCardsAvg:       row.homeCardsAvg ?? undefined,
+    awayCardsAvg:       row.awayCardsAvg ?? undefined,
+    homeSotAvg:         row.homeSotAvg ?? undefined,
+    awaySotAvg:         row.awaySotAvg ?? undefined,
+    homeShotsAvg:       row.homeShotsAvg ?? undefined,
+    awayShotsAvg:       row.awayShotsAvg ?? undefined,
   };
 }
 
@@ -368,6 +386,10 @@ function buildSignal(
 // ─── PER-MATCH SCAN ─────────────────────────────────────────────────────────
 
 function scanMatch(match: any, hoursToKickoff: number, tips: Tip[]): void {
+  // Sport temporarily disabled (see DISABLED_SPORTS above) — bail before
+  // any stats/odds queries or model calls.
+  if (DISABLED_SPORTS.has(match.sport)) return;
+
   const statsRow = buildStatsRow(match.id, match.sport);
   if (!statsRow) return;
 

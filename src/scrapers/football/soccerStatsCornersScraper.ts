@@ -44,6 +44,7 @@ interface SerializedCornerLeagueData {
 // UNCONFIRMED — commented out below. Verify against soccerstats.com/leagues.asp
 // before use; these leagues may not exist on this site or use different codes.
 export const SOCCERSTATS_LEAGUE_MAP: Record<string, string> = {
+  'Croatia 1.HNL': 'croatia',
   'EPL': 'england',
   'Championship': 'england2',
   'League 1': 'england3',
@@ -69,6 +70,27 @@ export const SOCCERSTATS_LEAGUE_MAP: Record<string, string> = {
   'Switzerland Super League': 'switzerland',
   'Ukraine Premier League': 'ukraine',
   'MLS': 'usa',
+  'Eliteserien - Norway': 'norway',
+  'Veikkausliiga - Finland': 'finland',
+  'K League 1': 'southkorea',
+  'Saudi Pro League': 'saudiarabia',
+  'Brazil Série A': 'brazil',
+  'Brazil Série B': 'brazil2',
+  'Allsvenskan - Sweden': 'sweden',
+  'Superettan - Sweden': 'sweden2',
+  'League of Ireland': 'ireland',
+  'Czech Republic Liga': 'czechrepublic',
+  'Bulgaria Professional League': 'bulgaria',
+  'Ligue 1 - France': 'france',
+  'England League 1': 'england3',
+  'England League 2': 'england4',
+  'Scotland Premiership': 'scotland',
+  'Ekstraklasa - Poland': 'poland',
+  'Belgium First Division': 'belgium',
+  'Denmark Superliga': 'denmark',
+  'Austrian Football Bundesliga': 'austria',
+  'Portugal - Liga Portugal': 'portugal',
+  'China Super League': 'china',
   // UNCONFIRMED — verify before use:
   // 'Veikkausliiga - Finland': 'finland',   // seen in nav, not independently fetched
   // 'Eliteserien - Norway': 'norway',       // seen in nav, not independently fetched
@@ -132,8 +154,19 @@ const BASE = 'https://www.soccerstats.com';
 
 
 
+function foldAccentsCorners(s: string): string {
+  return s
+    .replace(/\u00df/g, 'ss')
+    .replace(/[\u0142\u0141]/g, 'l')
+    .replace(/[\u00f8\u00d8]/g, 'o')
+    .replace(/[\u0111\u0110]/g, 'd')
+    .replace(/[\u00e6\u00c6]/g, 'ae')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
 function normalize(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+  return foldAccentsCorners(name).toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
 }
 
 // Words too generic to count as a real match signal on their own — "Derry
@@ -311,8 +344,18 @@ export async function fetchCornersData(leagueName: string): Promise<CornerLeague
   }
 }
 
+const CORNERS_ALIASES: Record<string, string> = {
+  'atletico mineiro': 'atletico mg',
+  'atletico paranaense': 'athletico pr',
+  'america mineiro': 'america mg',
+  'clube de regatas brasil': 'crb',
+  'botafogosp': 'botafogo sp',
+  'queens park rangers': 'qp rangers',
+};
+
 export function findCornersTeam(leagueData: CornerLeagueData, teamName: string): CornerTeamStats | null {
-  const key = normalize(teamName);
+  const rawKey = normalize(teamName);
+  const key = CORNERS_ALIASES[rawKey] ?? rawKey;
   if (leagueData.teams.has(key)) return leagueData.teams.get(key)!;
 
   let best: CornerTeamStats | null = null;

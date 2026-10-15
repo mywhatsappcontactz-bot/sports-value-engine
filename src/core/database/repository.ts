@@ -251,6 +251,11 @@ export class Repository {
     `).run(homeSotAvg, awaySotAvg, matchId);
   }
 
+  updateShotsAvg(matchId: string, homeShotsAvg: number, awayShotsAvg: number): void {
+    this.db.prepare(`UPDATE stats SET homeShotsAvg = ?, awayShotsAvg = ?, lastUpdated = CURRENT_TIMESTAMP WHERE matchId = ?`)
+      .run(homeShotsAvg, awayShotsAvg, matchId);
+  }
+
   // Partial update for goals only — writes into stats.additionalContext
   // (JSON blob), NOT the separate homeGoalsAvg/awayGoalsAvg columns —
   // computeFootballLambdas (probabilityModel.ts) reads

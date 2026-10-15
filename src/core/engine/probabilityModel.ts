@@ -1069,6 +1069,91 @@ function modelFootballTeamSotOver(stats: Stats): MarketProbability[] | null {
   return results.length ? results : null;
 }
 
+// ─── SHOTS (total shots) ─────────────────────────────────────
+// Fitted via scripts/shotsIsotonicFit.ts (all seasons). Held-out 2324-2425 passed
+// for these four combos. Plain Poisson, maxVal 40 - tables are invalid for any other setup.
+const SHOTS_MAXV = 40;
+const SHOTS_TOTAL_22_5_BLOCKS: { x: number; y: number }[] = [
+  { x: 0.8010, y: 0.6563 }, { x: 0.8017, y: 0.6667 }, { x: 0.8050, y: 0.6689 }, { x: 0.8185, y: 0.7182 },
+  { x: 0.8309, y: 0.7195 }, { x: 0.8427, y: 0.7481 }, { x: 0.8734, y: 0.7828 }, { x: 0.8986, y: 0.7939 },
+  { x: 0.9136, y: 0.8133 }, { x: 0.9353, y: 0.8262 }, { x: 0.9617, y: 0.8313 }, { x: 0.9858, y: 0.9184 },
+];
+const SHOTS_HOME_11_5_BLOCKS: { x: number; y: number }[] = [
+  { x: 0.8052, y: 0.7043 }, { x: 0.8118, y: 0.7414 }, { x: 0.8431, y: 0.7487 }, { x: 0.8854, y: 0.7668 },
+  { x: 0.8985, y: 0.7917 }, { x: 0.9130, y: 0.8185 }, { x: 0.9389, y: 0.8254 }, { x: 0.9533, y: 0.8353 },
+  { x: 0.9618, y: 0.8489 }, { x: 0.9687, y: 0.8571 }, { x: 0.9702, y: 0.8750 }, { x: 0.9713, y: 0.8889 },
+  { x: 0.9775, y: 0.8951 }, { x: 0.9836, y: 0.9091 }, { x: 0.9860, y: 0.9276 }, { x: 0.9889, y: 0.9375 },
+  { x: 0.9901, y: 0.9429 }, { x: 0.9930, y: 0.9457 }, { x: 0.9961, y: 0.9485 },
+];
+const SHOTS_HOME_13_5_BLOCKS: { x: number; y: number }[] = [
+  { x: 0.8207, y: 0.6696 }, { x: 0.8451, y: 0.7105 }, { x: 0.8598, y: 0.7225 }, { x: 0.8755, y: 0.7292 },
+  { x: 0.8828, y: 0.7385 }, { x: 0.8986, y: 0.7407 }, { x: 0.9134, y: 0.7838 }, { x: 0.9313, y: 0.7956 },
+  { x: 0.9534, y: 0.8526 }, { x: 0.9617, y: 0.8750 }, { x: 0.9780, y: 0.8954 }, { x: 0.9907, y: 0.9333 },
+];
+const SHOTS_AWAY_9_5_BLOCKS: { x: number; y: number }[] = [
+  { x: 0.8063, y: 0.6606 }, { x: 0.8120, y: 0.6667 }, { x: 0.8129, y: 0.6800 }, { x: 0.8161, y: 0.6829 },
+  { x: 0.8311, y: 0.7132 }, { x: 0.8425, y: 0.7273 }, { x: 0.8429, y: 0.7500 }, { x: 0.8466, y: 0.7500 },
+  { x: 0.8669, y: 0.7569 }, { x: 0.8884, y: 0.7889 }, { x: 0.9022, y: 0.8110 }, { x: 0.9222, y: 0.8227 },
+  { x: 0.9474, y: 0.8260 }, { x: 0.9688, y: 0.8548 }, { x: 0.9819, y: 0.8773 }, { x: 0.9919, y: 0.8824 },
+  { x: 0.9968, y: 0.9389 }, { x: 0.9983, y: 0.9643 }, { x: 0.9986, y: 0.9677 },
+];
+const SHOTS_MIN_CONFIDENCE = 0.80;
+
+function shotsPmfArr(l: number): number[] {
+  const o: number[] = [];
+  for (let k = 0; k <= SHOTS_MAXV; k++) {
+    if (l <= 0) { o.push(k === 0 ? 1 : 0); continue; }
+    let lp = -l + k * Math.log(l);
+    for (let i = 2; i <= k; i++) lp -= Math.log(i);
+    o.push(Math.exp(lp));
+  }
+  return o;
+}
+function shotsOverOne(p: number[], line: number): number {
+  return p.reduce((s, v, k) => s + (k > line ? v : 0), 0);
+}
+function shotsOverTotal(ph: number[], pa: number[], line: number): number {
+  let o = 0;
+  for (let i = 0; i <= SHOTS_MAXV; i++) for (let j = 0; j <= SHOTS_MAXV; j++) if (i + j > line) o += ph[i] * pa[j];
+  return o;
+}
+
+function modelFootballShots(stats: Stats): MarketProbability[] | null {
+  const lh = stats.homeShotsAvg;
+  const la = stats.awayShotsAvg;
+  if (lh == null || la == null) return null;
+  if (lh < 4 || lh > 25 || la < 4 || la > 25) return null;
+  const ph = shotsPmfArr(lh);
+  const pa = shotsPmfArr(la);
+  const results: MarketProbability[] = [];
+  const method = 'poisson-shots-isotonic';
+
+  const totRaw = shotsOverTotal(ph, pa, 22.5);
+  if (totRaw >= SHOTS_MIN_CONFIDENCE) {
+    const cal = isotonicLookup(SHOTS_TOTAL_22_5_BLOCKS, totRaw);
+    if (cal >= CARDS_SOT_MIN_TIP_CONFIDENCE) results.push({ market: 'shots_totals', selection: 'Over 22.5', trueProbability: cal, method });
+  }
+
+  const homeCands = [
+    { line: 11.5, blocks: SHOTS_HOME_11_5_BLOCKS },
+    { line: 13.5, blocks: SHOTS_HOME_13_5_BLOCKS },
+  ].map(c => {
+    const raw = shotsOverOne(ph, c.line);
+    return { line: c.line, raw, cal: raw >= SHOTS_MIN_CONFIDENCE ? isotonicLookup(c.blocks, raw) : -1 };
+  }).filter(c => c.raw >= SHOTS_MIN_CONFIDENCE && c.cal >= CARDS_SOT_MIN_TIP_CONFIDENCE);
+  if (homeCands.length) {
+    const b = homeCands.reduce((a, c) => (c.line > a.line ? c : a));
+    results.push({ market: 'team_shots_over', selection: 'Home Over ' + b.line, trueProbability: b.cal, method });
+  }
+
+  const awRaw = shotsOverOne(pa, 9.5);
+  if (awRaw >= SHOTS_MIN_CONFIDENCE) {
+    const cal = isotonicLookup(SHOTS_AWAY_9_5_BLOCKS, awRaw);
+    if (cal >= CARDS_SOT_MIN_TIP_CONFIDENCE) results.push({ market: 'team_shots_over', selection: 'Away Over 9.5', trueProbability: cal, method });
+  }
+  return results.length ? results : null;
+}
+
 function modelFootball(input: ModelInput): MarketProbability[] {
   const { stats } = input;
   const results: MarketProbability[] = [];
@@ -1459,6 +1544,9 @@ function modelFootball(input: ModelInput): MarketProbability[] {
 
   const teamSotOverTip = modelFootballTeamSotOver(stats);
   if (teamSotOverTip) results.push(...teamSotOverTip);
+
+  const shotsTip = modelFootballShots(stats);
+  if (shotsTip) results.push(...shotsTip);
 
   return results;
 }
