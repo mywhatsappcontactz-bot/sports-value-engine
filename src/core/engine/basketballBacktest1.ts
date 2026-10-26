@@ -25,7 +25,7 @@ const HOME_COURT_BIAS = 0.075;
 // genuinely returns distinct historical season data (confirmed via
 // different real game counts per year across BSL/CBA/France in an
 // earlier run of this backtest) — safe to trust.
-const SEASONS: (number | undefined)[] = [undefined, 2024, 2023, 2022, 2021];
+const SEASONS: (number | undefined)[] = [undefined, 2025, 2024, 2023, 2022, 2021];
 
 function seasonLabel(season: number | undefined): string {
   return season ? `${season}-${(season + 1).toString().slice(-2)}` : 'current';
@@ -53,7 +53,10 @@ const MIN_LEAGUE_HIT_RATE_TO_INCLUDE = 0.70;
 // hardcoded subset. Deriving this from the map itself means it can never
 // go out of sync with it again (this previously bit France when the map
 // key was renamed but ACTIVE_LEAGUES wasn't updated to match).
-const ACTIVE_LEAGUES = Object.keys(PROBALLERS_LEAGUE_MAP).filter(l => !BROKEN_LEAGUES.has(l));
+const ONLY = process.env.ONLY_LEAGUES?.split('|');
+const ACTIVE_LEAGUES = Object.keys(PROBALLERS_LEAGUE_MAP).filter(
+  l => !BROKEN_LEAGUES.has(l) && (!ONLY || ONLY.includes(l))
+);
 
 // ─── TYPES ──────────────────────────────────────────────────────────────
 

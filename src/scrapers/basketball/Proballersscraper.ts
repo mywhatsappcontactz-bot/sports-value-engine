@@ -80,12 +80,33 @@ export const PROBALLERS_LEAGUE_MAP: Record<string, { id: number; slug: string }>
   'NBL - Bulgaria':           { id: 186, slug: 'bulgaria-nbl' },
   'Liga A - Argentina':       { id: 188, slug: 'argentina-liga-a' },
   'BSN - Puerto Rico':        { id: 270, slug: 'puerto-rico-bsn' },
-  'B1 League - Japan':        { id: 281, slug: 'japan-b1-league' },
+  'B1 League - Japan':        { id: 281, slug: 'japan-b-premier' },
   'Philippines - PBA':        { id: 357, slug: 'philippines-pba' },
   'Mexico - Liga SISNova LNBP': { id: 100035, slug: 'mexico-liga-sisnova-lnbp' },
   'A League - Serbia':        { id: 285, slug: 'serbia-kls' },              // was 'serbia-a-league'
   'Liga Nova KBM - Slovenia': { id: 173, slug: 'slovenia-liga-otp-banka' }, // was 'slovenia-liga-nova-kbm'
   'Basketligan - Sweden':     { id: 190, slug: 'sweden-basketligan' },      // was 'sweeden-basketligan' — my earlier "sic" note was wrong, no typo on Proballers' side
+  // ─── New candidates (pending backtest, keep only ≥70% hit rate) ───
+  'Liga ABA - Adriatic':      { id: 182, slug: 'adriatic-liga-aba' },
+  'Superliga - Austria':      { id: 189, slug: 'austria-superliga' },
+  'Pro A - Germany':          { id: 276, slug: 'germany-pro-a' },
+  'Elite 2 - France':         { id: 2,   slug: 'france-elite-2' },
+  'Korisliiga - Finland':     { id: 181, slug: 'finland-korisliiga' },
+  'A League - Hungary':       { id: 169, slug: 'hungary-a-league' },
+  'Extraliga - Slovakia':     { id: 209, slug: 'slovakia-extraliga' },
+  'SBL - Switzerland':        { id: 201, slug: 'switzerland-sbl' },
+  'Superleague - Georgia':    { id: 317, slug: 'georgia-superleague' },
+  'B2 League - Japan':        { id: 103, slug: 'japan-b-one' },
+  // ─── Batch 2 candidates (pending backtest, keep only ≥70% hit rate) ───
+  'VTB United League - Russia': { id: 272, slug: 'vtb-united-league' },
+  'Liga - Uruguay': { id: 356, slug: 'uruguay-liga' },
+  'Division A - Romania': { id: 257, slug: 'romania-division-a' },
+  'Express League - Iceland': { id: 322, slug: 'iceland-express-league' },
+  'Serie A2 - Italy': { id: 140, slug: 'italy-serie-a2' },
+  'NBL - New Zealand': { id: 359, slug: 'new-zealand-nbl' },
+  'SLB - UK': { id: 120, slug: 'british-slb' },
+  'Primera FEB - Spain': { id: 194, slug: 'spain-primera-feb' },
+  'Euroleague': { id: 177, slug: 'euroleague' },
 };
 
 // ─── TYPES ──────────────────────────────────────────────────────────────
@@ -189,6 +210,29 @@ function canonicalizeTeamName(name: string): string {
   return TEAM_NAME_ALIASES[name] ?? name;
 }
 
+// Per-league team-name aliases (added 2026-10-26). Applied AFTER parsing and ONLY for the league named here,
+// so other leagues' names are untouched. Euroleague renamed 8 clubs for 2026-27 (and AX Milano -> EA7 Milano in 2022).
+// Everything maps to the names used for the 2022-23 to 2025-26 seasons.
+const LEAGUE_TEAM_ALIASES: Record<string, Record<string, string>> = {
+  'Euroleague': {
+    'Armani Olimpia Milan': 'EA7 Milano',
+    'AX Milano': 'EA7 Milano',
+    'Baskonia Vitoria-Gasteiz': 'Baskonia',
+    'Dubai Basketball': 'Dubai',
+    'FC Bayern Munich': 'FC Bayern München',
+    'Fenerbahce Istanbul': 'Fenerbahce BEKO',
+    'Maccabi Rapyd Tel Aviv': 'Maccabi Tel Aviv',
+    'Partizan Belgrade': 'Partizan',
+    'Virtus Bologna': 'Segafredo Bologna',
+  },
+};
+
+function applyLeagueAliases<T extends { homeTeam: string; awayTeam: string }>(leagueName: string, games: T[]): T[] {
+  const aliases = LEAGUE_TEAM_ALIASES[leagueName];
+  if (!aliases) return games;
+  return games.map(g => ({ ...g, homeTeam: aliases[g.homeTeam] ?? g.homeTeam, awayTeam: aliases[g.awayTeam] ?? g.awayTeam }));
+}
+
 // ─── PARSE (cheerio-based) ────────────────────────────────────────────
 
 const MONTHS: Record<string, number> = {
@@ -273,7 +317,7 @@ export async function fetchLeagueSchedule(leagueName: string, seasonStartYear?: 
   const html = await fetchHtml(url);
   console.log(`  [debug] fetch complete, got ${html.length} bytes — starting parse...`);
   await sleep(REQUEST_DELAY_MS);
-  const result = parseSchedule(html);
+  const result = applyLeagueAliases(leagueName, parseSchedule(html));
   console.log(`  [debug] parse complete, ${result.length} games`);
   return result;
 }
@@ -403,7 +447,7 @@ export async function fetchUpcomingGames(leagueName: string): Promise<Proballers
   const url = `${BASE}/basketball/league/${league.id}/${league.slug}/schedule`;
   const html = await fetchHtml(url);
   await sleep(REQUEST_DELAY_MS);
-  return parseUpcomingSchedule(html);
+  return applyLeagueAliases(leagueName, parseUpcomingSchedule(html));
 }
 
 export function headToHead(games: ProballersGame[], teamA: string, teamB: string): ProballersGame[] {

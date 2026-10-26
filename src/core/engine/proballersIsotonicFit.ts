@@ -30,7 +30,7 @@ const MIN_RELIABLE_WEIGHT = 30;
 
 // Same season-suffix sweep as basketballBacktest1.ts — confirmed to
 // return distinct real historical data per year.
-const SEASONS: (number | undefined)[] = [undefined, 2024, 2023, 2022, 2021];
+const SEASONS: (number | undefined)[] = [undefined, 2025, 2024, 2023, 2022, 2021];
 
 // Same home-court value confirmed via basketballBacktest1.ts (closed a
 // real Home/Away imbalance: 30/70 split -> 43/57, overall hit rate
@@ -45,6 +45,13 @@ const EXCLUDED_LEAGUES = new Set<string>([
   'Liga A - Argentina',       // 57.5% hit rate, n=40
   'BSN - Puerto Rico',        // 64.3% hit rate, n=28
   'NBL - Australia',          // 66.7% hit rate, n=12
+  'Elite 2 - France',         // 68.6% hit rate, n=51 (2026-10-25 backtest)
+  'Korisliiga - Finland',     // 61.8% hit rate, n=34 (2026-10-25 backtest)
+  'Liga - Uruguay', // 63.3% hit rate, n=30 (2026-10-25 backtest)
+  'NBL - New Zealand', // 38.5% hit rate, n=13 (2026-10-25 backtest, all 6 seasons loaded)
+  'Superleague - Georgia', // 53.2% hit rate at raw>=0.75, n=47 under live formula (2026-10-25); passed backtest only on n=10
+  'Serie A2 - Italy', // passes 70% (77.1% at raw>=0.75) but overconfident: gap +5.6 / +7.9 pts at 0.75 / 0.70 floors (2026-10-25)
+  'Euroleague', // UNTESTED (added 2026-10-26)
 ]);
 
 const FIT_LEAGUES = Object.keys(PROBALLERS_LEAGUE_MAP).filter(l => !EXCLUDED_LEAGUES.has(l));

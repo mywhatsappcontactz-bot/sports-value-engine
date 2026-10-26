@@ -56,6 +56,13 @@ const EXCLUDED_LEAGUES = [
   'BSN - Puerto Rico',        // 64.3% hit rate, n=28
   'NBL - Australia',          // 66.7% hit rate, n=12
   'Philippines - PBA',        // stuck on stale 2011-12 data — no working current-season URL found as of 2026-08-17
+  'Elite 2 - France',         // 68.6% hit rate, n=51 (2026-10-25 backtest)
+  'Korisliiga - Finland',     // 61.8% hit rate, n=34 (2026-10-25 backtest)
+  'Liga - Uruguay', // 63.3% hit rate, n=30 (2026-10-25 backtest)
+  'NBL - New Zealand', // 38.5% hit rate, n=13 (2026-10-25 backtest, all 6 seasons loaded)
+  'Superleague - Georgia', // 53.2% hit rate at raw>=0.75, n=47 under live formula (2026-10-25); passed backtest only on n=10
+  'Serie A2 - Italy', // passes 70% (77.1% at raw>=0.75) but overconfident: gap +5.6 / +7.9 pts at 0.75 / 0.70 floors (2026-10-25)
+  'Euroleague', // UNTESTED (added 2026-10-26)
 ];
 
 const ACTIVE_LEAGUES = Object.keys(PROBALLERS_LEAGUE_MAP).filter(
