@@ -70,6 +70,7 @@ function filterToDomesticLeague(rows: MatchLogRow[], leagueName: string): MatchL
 // sometimes abbreviates opponent names differently than squad slugs
 // (e.g. "Manchester Utd" vs "Manchester United").
 const TEAM_ALIASES: Record<string, string> = {
+  alustenau: 'scaustrialustenau', lasklinz: 'lask', fckobenhavn: 'fccopenhagen', agfaarhus: 'agf', odensebk: 'odense', brondbyif: 'brondby', cracoviakrakow: 'cracovia', sportingbraga: 'braga', gilvicente: 'gilvicentefc', krylyasovetov: 'samara', lokomotivm: 'lokomotivmoscow', fckrasnodar: 'krasnodar', makhachkala: 'dynamomakhachkala', akron: 'akrontolyatti',
   kvmechelen: 'mechelen', fczurich: 'zurich', servette: 'servettefc', bscyoungboys: 'youngboys',
   dundeeutd: 'dundeeunited', dundeefc: 'dundee', hearts: 'heartofmidlothian',
   corum: 'yenicorumspor', amedsk: 'amedspor', basaksehir: 'istanbulbasaksehir',

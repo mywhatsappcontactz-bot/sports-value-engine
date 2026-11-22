@@ -1,10 +1,17 @@
 // src/scrapers/football/soccerStatsTeamSlugs.ts
 //
-// Builds a team-name -> teamstats.asp slug map for a soccerstats.com
-// league, by scraping the league's own latest.asp page (the "Teams"
-// dropdown lists every team as teamstats.asp?league=X&stats=SLUG).
-// Needed because teamResultsScraper.ts requires the exact slug, not
-// just a team name.
+// Builds a team-name -> team-page path map for a soccerstats.com league
+// by reading the league's own latest.asp page.
+//
+// UPDATED 2026-11-10: SoccerStats changed its team links from
+//   <a href='teamstats.asp?league=X&stats=u4788-sirius'>Sirius</a>
+// to
+//   <a href="/en-gb/leagues/england/league-two/england4/teams/fleetwood-town/608">Fleetwood Town</a>
+// The old pattern matched nothing, so every team lookup failed. The "slug"
+// returned here is now the path after /en-gb/leagues/, for example
+//   england/league-two/england4/teams/fleetwood-town/608
+// Empty results are no longer cached, and the cache file name carries a
+// version so lists saved in the old format are ignored.
 
 import * as fs from 'fs';
 import * as path from 'path';
@@ -19,11 +26,11 @@ function safeFileName(key: string): string {
 }
 
 function cachePath(leagueCode: string): string {
-  return path.join(CACHE_DIR, `soccerstats-teamslugs-${safeFileName(leagueCode)}.json`);
+  return path.join(CACHE_DIR, `soccerstats-teamslugs-v2-${safeFileName(leagueCode)}.json`);
 }
 
 interface CacheEntry {
-  slugs: Record<string, string>; // normalized name -> slug
+  slugs: Record<string, string>; // normalized name -> team path
   fetchedAt: number;
 }
 
@@ -34,6 +41,7 @@ function readCache(leagueCode: string): Record<string, string> | null {
     const raw = fs.readFileSync(filePath, 'utf-8');
     const entry: CacheEntry = JSON.parse(raw);
     if (Date.now() - entry.fetchedAt >= CACHE_TTL_MS) return null;
+    if (!entry.slugs || Object.keys(entry.slugs).length === 0) return null;
     return entry.slugs;
   } catch (err: any) {
     logger.warn('[TeamSlugs] Cache read failed', { leagueCode, error: err.message });
@@ -42,6 +50,7 @@ function readCache(leagueCode: string): Record<string, string> | null {
 }
 
 function writeCache(leagueCode: string, slugs: Record<string, string>): void {
+  if (Object.keys(slugs).length === 0) return; // never cache an empty list
   try {
     if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
     const entry: CacheEntry = { slugs, fetchedAt: Date.now() };
@@ -70,17 +79,29 @@ function normalize(name: string): string {
 async function fetchSlugMap(leagueCode: string): Promise<Record<string, string>> {
   const html = await fetchViaFlare(`https://www.soccerstats.com/latest.asp?league=${leagueCode}`);
 
-  // Confirmed structure: teamstats.asp?league=X&stats=u4788-sirius">Sirius</a>
-const linkRegex = /href='teamstats\.asp\?league=\w+&stats=([\w.-]+)'>([^<]+)<\/a>/g;
-  const slugs: Record<string, string> = {};
+  // Current structure: <a href="/en-gb/leagues/<country>/<league>/<code>/teams/<name>/<id>">Team Name</a>
+  const linkRegex = /href="\/en-gb\/leagues\/([^"]+?\/teams\/[^"]+?\/\d+)">([^<]+)<\/a>/g;
+  const own: Record<string, string> = {};
+  const any: Record<string, string> = {};
 
   let m: RegExpExecArray | null;
   while ((m = linkRegex.exec(html)) !== null) {
-    const [, slug, name] = m;
-    slugs[normalize(name)] = slug;
+    const teamPath = m[1];
+    const key = normalize(m[2].replace(/&amp;/g, '&'));
+    if (!key) continue;
+    any[key] = teamPath;
+    const parts = teamPath.split('/');
+    const teamsIdx = parts.indexOf('teams');
+    if (teamsIdx > 0 && parts[teamsIdx - 1] === leagueCode) own[key] = teamPath;
   }
 
-  return slugs;
+  if (Object.keys(own).length > 0) return own;
+  if (Object.keys(any).length > 0) {
+    logger.warn('[TeamSlugs] No links under this league code - using every team link on the page', { leagueCode });
+    return any;
+  }
+  logger.warn('[TeamSlugs] No team links found on league page - markup may have changed again', { leagueCode });
+  return {};
 }
 
 // DB (football-data style) name -> soccerstats name, both normalized.
@@ -95,7 +116,9 @@ const TEAM_NAME_ALIASES: Record<string, string> = {
   'queens park rangers': 'qp rangers',
   'sheffield united': 'sheffield utd',
   'west ham united': 'west ham utd',
-  'manchester united': 'manchester utd',
+  'manchester united': 'man utd',
+  'manchester utd': 'man utd',
+  'manchester city': 'man city',
   'leeds united': 'leeds utd',
   'nottingham forest': 'nottm forest',
   'cambridge united': 'cambridge utd',
@@ -103,11 +126,49 @@ const TEAM_NAME_ALIASES: Record<string, string> = {
   'colchester united': 'colchester utd',
   'sheffield wednesday': 'sheffield wed',
     'nordic united fc': 'united nordic',
+  'celta vigo b': 'celta fortuna',
+  'lok plovdiv': 'lokomotiv plovdiv',
+  'sankt pauli': 'st pauli',
+  'polessya': 'polissya zhytomyr',
+  'episentr': 'epitsentr dunayivtsi',
+  'kasimpasa': 'kasmpasa',
+  'erzurum bb': 'erzurumspor',
+  'amed sk': 'amedspor',
+  'athletic bilbao': 'athletic club',
+  'rodina moscow': 'rodina moskva',
+  'dinamo moscow': 'dinamo moskva',
+  'legia warsaw': 'legia warszawa',
+  'az alkmaar': 'az',
+  'e frankfurt': 'eintracht frankfurt',
+  'hertha berlin': 'hertha bsc',
+  'wolverhampton': 'wolves',
+  'fc kobenhavn': 'fc copenhagen',
+  'slaven belupo': 'slaven koprivnica',
+  'lok zagreb': 'lokomotiva zagreb',
+  'tianjin jt': 'tianjin jinmen tiger',
+  's shenhua': 'shanghai shenhua',
+  'henan sl': 'henan songshan longm',
+  'atletico mg': 'atletico mineiro',
+  'america mg': 'america mineiro',
+  'bodoglimt': 'bodo glimt',
+  'bucheon fc': 'bucheon 1995',
+  'al ittifaq': 'al ettifaq',
+  'al taawon': 'al taawoun',
+  'al feiha': 'alfayha',
+  'al quadisiya': 'alqadsiah',
 };
 
+// Fixture sources abbreviate ("Cambridge Utd", "Sheffield Wed"); the site now
+// spells names out. Expand both sides before comparing.
+const ABBREV: Record<string, string> = { utd: 'united', wed: 'wednesday', nottm: 'nottingham', qp: 'queens park' };
+function expandAbbrev(n: string): string {
+  return n.split(' ').map(t => ABBREV[t] ?? t).join(' ');
+}
+
 /**
- * Returns the teamstats.asp slug for a team name in a given league,
- * or null if not found (e.g. name mismatch, or league not covered).
+ * Returns the team-page path for a team name in a given league
+ * (e.g. england/league-two/england4/teams/fleetwood-town/608),
+ * or null if not found (name mismatch, or league not covered).
  */
 export async function findTeamSlug(leagueCode: string, teamName: string): Promise<string | null> {
   let slugs = readCache(leagueCode);
@@ -121,9 +182,13 @@ export async function findTeamSlug(leagueCode: string, teamName: string): Promis
   if (aliased && slugs[aliased]) return slugs[aliased];
   if (slugs[key]) return slugs[key];
 
-  // fuzzy fallback, same approach as other scrapers tonight
+  const ek = expandAbbrev(key);
   for (const [name, slug] of Object.entries(slugs)) {
-    if (name.includes(key) || key.includes(name)) return slug;
+    if (expandAbbrev(name) === ek) return slug;
+  }
+  for (const [name, slug] of Object.entries(slugs)) {
+    const en = expandAbbrev(name);
+    if (en.includes(ek) || (en.length >= 3 && ek.includes(en))) return slug;
   }
 
   logger.warn('[TeamSlugs] No slug match', { leagueCode, teamName, normalized: key });

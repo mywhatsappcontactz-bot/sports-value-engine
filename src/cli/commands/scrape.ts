@@ -165,7 +165,7 @@ async function scrapeFootball(): Promise<void> {
   // requests run up front, before the slow fixture syncs and soccerstats
   // fetches. Results are cached here and reused by the per-league loop below.
   const prefetchedCardsSot = new Map<string, Awaited<ReturnType<typeof syncCardsSotForLeague>>>();
-  for (const key of (process.env.SKIP_FBREF === '1' ? [] : Object.values(LEAGUE_NAME_TO_CARDS_SOT_KEY))) {
+  for (const key of (process.env.SKIP_FBREF === '1' ? [] : Object.values(LEAGUE_NAME_TO_CARDS_SOT_KEY).filter((k) => !process.env.FBREF_KEYS || process.env.FBREF_KEYS.split(',').includes(k)))) {
     try {
       logger.info('[Scrape] Prefetching cards/SOT (FBref first)', { key });
       prefetchedCardsSot.set(key, await syncCardsSotForLeague(CARDS_SOT_SEASON, key));

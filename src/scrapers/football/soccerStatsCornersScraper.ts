@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '../../core/utils/logger';
 import { fetchViaFlare } from '../shared/flareFetch';
+import * as cheerio from 'cheerio';
 
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 
@@ -309,6 +310,84 @@ function parseCornersPage(html: string): Map<string, CornerTeamStats> {
 
 // ─── PUBLIC API ───────────────────────────────────────────────────────────────
 
+// ─── CURRENT TEMPLATE (2026-11 redesign) ─────────────────────────────────────
+// table.asp?league=X&tid=cr no longer exists (404). Corner stats now live at
+//   /en-gb/leagues/<country>/<league>/<code>/table/corners
+// and are linked from the league's latest.asp page as "Corner stats". That page
+// has three <table class="cr-table"> blocks (Total, Home matches, Away matches).
+// Data rows: team | GP | corners per match For | Against | Total | | 8.5+ | 9.5+ | 10.5+
+// The two header rows use <th>, so only <td> rows are read.
+function parseCornerTable($: any, tbl: any): RawRow[] {
+  const out: RawRow[] = [];
+  tbl.find('tr').each((_i: number, tr: any) => {
+    const cells = $(tr).children('td').map((_j: number, c: any) => $(c).text().replace(/\s+/g, ' ').trim()).get() as string[];
+    if (cells.length < 4) return;
+    const name = cells[0];
+    const gp = parseInt(cells[1], 10);
+    const cf = parseFloat(cells[2]);
+    const ca = parseFloat(cells[3]);
+    if (!name || /^(avg|average|league|total)\b/i.test(name) || isNaN(gp) || isNaN(cf) || isNaN(ca)) return;
+    out.push({ teamName: name, gp, cornersFor: cf, cornersAgainst: ca });
+  });
+  return out;
+}
+
+function parseCornersPageCurrent(html: string): Map<string, CornerTeamStats> {
+  const $: any = cheerio.load(html);
+  let total: RawRow[] = [];
+  let home: RawRow[] = [];
+  let away: RawRow[] = [];
+  $('table.cr-table').each((_i: number, tb: any) => {
+    const tbl = $(tb);
+    const label = tbl.find('tr').first().children().first().text().replace(/\s+/g, ' ').trim();
+    const rows = parseCornerTable($, tbl);
+    if (/^home/i.test(label)) home = rows;
+    else if (/^away/i.test(label)) away = rows;
+    else if (total.length === 0) total = rows;
+  });
+
+  const teams = new Map<string, CornerTeamStats>();
+  for (const t of total) {
+    const key = normalize(t.teamName);
+    const h = home.find((r) => normalize(r.teamName) === key);
+    const a = away.find((r) => normalize(r.teamName) === key);
+    teams.set(key, {
+      teamName: t.teamName,
+      gp: t.gp,
+      totalCornersFor: t.cornersFor,
+      totalCornersAgainst: t.cornersAgainst,
+      homeCornersFor: h?.cornersFor ?? 0,
+      homeCornersAgainst: h?.cornersAgainst ?? 0,
+      awayCornersFor: a?.cornersFor ?? 0,
+      awayCornersAgainst: a?.cornersAgainst ?? 0,
+      homeGp: h?.gp ?? 0,
+      awayGp: a?.gp ?? 0,
+    });
+  }
+  logger.info(`[SoccerStatsCorners] Parsed ${teams.size} teams (current template)`, {
+    total: total.length,
+    home: home.length,
+    away: away.length,
+  });
+  return teams;
+}
+
+async function fetchCornersTeamsCurrent(leagueCode: string): Promise<Map<string, CornerTeamStats>> {
+  const leaguePage = await fetchHtml(`${BASE}/latest.asp?league=${leagueCode}`);
+  const hrefs: string[] = [];
+  const linkRe = /href=["'](\/en-gb\/leagues\/[^"']+\/table\/corners)["']/g;
+  let m: RegExpExecArray | null;
+  while ((m = linkRe.exec(leaguePage)) !== null) hrefs.push(m[1]);
+  const href = hrefs.find((h) => h.includes('/' + leagueCode + '/table/corners')) ?? hrefs[0];
+  if (!href) {
+    logger.warn('[SoccerStatsCorners] No "Corner stats" link on the league page', { leagueCode });
+    return new Map();
+  }
+  const html = await fetchHtml(`${BASE}${href}`);
+  return parseCornersPageCurrent(html);
+}
+
+
 export async function fetchCornersData(leagueName: string): Promise<CornerLeagueData | null> {
   const cached = readCornersCache(leagueName);
   if (cached) {
@@ -323,8 +402,11 @@ export async function fetchCornersData(leagueName: string): Promise<CornerLeague
   }
 
   try {
-    const html = await fetchHtml(`${BASE}/table.asp?league=${leagueCode}&tid=cr`);
-    const teams = parseCornersPage(html);
+    let teams = await fetchCornersTeamsCurrent(leagueCode);
+    if (teams.size === 0) {
+      // old address (removed by SoccerStats in 2026-11); last resort only
+      try { teams = parseCornersPage(await fetchHtml(`${BASE}/table.asp?league=${leagueCode}&tid=cr`)); } catch (_e) { /* page removed */ }
+    }
 
     if (teams.size === 0) {
       logger.warn('[SoccerStatsCorners] No teams parsed', { leagueName });

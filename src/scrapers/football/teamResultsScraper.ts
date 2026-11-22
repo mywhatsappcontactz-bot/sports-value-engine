@@ -1,49 +1,21 @@
 // src/scrapers/football/teamResultsScraper.ts
 //
-// Reads individual match-by-match results from a team's teamstats.asp
-// page — real per-match data (date, opponent, score, venue), unlike
-// formtable.asp's aggregate-only numbers. Feeds homeForm/awayForm
-// directly, matching FCStats' FormRecord shape.
+// Reads individual match-by-match results from a team's page on soccerstats.com
+// (date, opponent, score, venue). Feeds homeForm/awayForm directly, matching
+// FCStats' FormRecord shape.
 //
-// NOTE (2026-08-16): fetchHtml() uses a manual cf_clearance cookie via
-// fetchViaFlare() (see flareFetch.ts) — plain HTTP, not a rendered
-// browser. Confirmed against live Turkey data that RAW HTML uses
-// single-quoted attributes and a title='X vs Y' attribute — this is
-// the ORIGINAL format this file used before an earlier session
-// mistakenly "fixed" it against browser-rendered (double-quoted,
-// no title attribute) markup from Camoufox/FlareSolverr. If the fetch
-// method ever changes back to a real browser, these regexes will need
-// to flip back to double-quoted/no-title format again — check raw
-// content before assuming either version is current.
-//
-// Row structure confirmed against real HTML (Turkey, Galatasaray,
-// 2026-08-16):
-//
-//   <tr bgcolor='#FFFFBF' height='38'>
-//     <td align='right'><font style='font-size:11px;color:#444444;'>
-//       14 Aug
-//     </font></td>
-//     <td align='right' style='padding-right:4px;'>
-//       <b>Galatasaray</b>                        <- home team (bold if page-owner)
-//     </td>
-//     <td align='center' width='46'>
-//       <a href='#m1' class='tooltip4' ...>
-//         <font style='color:blue;font-size:14px;font-family:monospace;'>
-//           <b>2:2</b>                              <- REAL final score (home:away)
-//         </font>
-//         <span>...tooltip with goal-by-goal minute markers -- IGNORED</span>
-//       </a>
-//     </td>
-//     ...
-//     <td align='center'>
-//       <a class='SmallButton' href='pmatch.asp?...' title='Home vs Away' ...>
-//     </td>
-//   </tr>
-//
-// Ground truth for home/away comes from the pmatch title attribute
-// ('Home vs Away'), NOT from which name is bolded (bold just marks
-// whichever team the page belongs to, regardless of venue).
+// UPDATED 2026-11-10: SoccerStats replaced
+//   teamstats.asp?league=X&stats=SLUG   (single-quoted markup, <tr height='38'>)
+// with
+//   /en-gb/leagues/<country>/<league>/<code>/teams/<name>/<id>
+// Each result is now a <tr class="... tbl-match-row"> with:
+//   td.td-date-compact  -> [data-kickoff="2026-10-24 14:00:00"]
+//   td.td-team-right    -> HOME team name (span.desktop-only)
+//   td.td-score-center  -> span.score-badge "2:1"
+//   td.td-team-left     -> AWAY team name (span.desktop-only)
+// Ground truth for home/away is the cell position, as before.
 
+import * as cheerio from 'cheerio';
 import { logger } from '../../core/utils/logger';
 import { FormRecord } from '../../core/database/schema';
 import { findTeamSlug } from './soccerStatsTeamSlugs';
@@ -51,21 +23,6 @@ import { fetchViaFlare } from '../shared/flareFetch';
 
 async function fetchHtml(url: string): Promise<string> {
   return fetchViaFlare(url);
-}
-
-const MONTHS: Record<string, number> = {
-  jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
-  jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
-};
-
-function inferDate(day: number, monthAbbr: string): string {
-  const month = MONTHS[monthAbbr.toLowerCase()];
-  const now = new Date();
-  let year = now.getFullYear();
-  let candidate = new Date(Date.UTC(year, month, day));
-  const diffDays = (candidate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-  if (diffDays > 30) { year -= 1; candidate = new Date(Date.UTC(year, month, day)); }
-  return candidate.toISOString().split('T')[0];
 }
 
 function normIdent(s: string): string {
@@ -76,13 +33,16 @@ function normIdent(s: string): string {
     .replace(/[^a-z0-9]/g, '');
 }
 
+// "england/league-two/england4/teams/fleetwood-town/608" -> "fleetwood-town"
+function slugNamePart(teamPath: string): string {
+  const parts = teamPath.split('/');
+  return parts.length >= 2 ? parts[parts.length - 2] : teamPath;
+}
+
 // True when the page <title> belongs to the team we asked for.
-// 1) old test: title contains our team name
-// 2) title's team name (text before " statistics") matches the slug's name part
-function pageIsForTeam(pageTitle: string, teamName: string, teamStatsSlug: string): boolean {
+function pageIsForTeam(pageTitle: string, teamName: string, slugName: string): boolean {
   if (pageTitle.includes(teamName)) return true;
-  const head = pageTitle.split(/\s+statistics/i)[0];
-  const slugName = teamStatsSlug.replace(/^u\d+-/, '');
+  const head = pageTitle.split(/\s+(?:statistics|stats)/i)[0];
   const nHead = normIdent(head);
   const nSlug = normIdent(slugName);
   if (!nHead || !nSlug) return false;
@@ -97,77 +57,76 @@ function normTeam(s: string): string {
     .replace(/[^a-z0-9]/g, '');
 }
 
-// True when a title name from the page refers to the team we asked for:
-// exact DB name, or the slug's name part (u7573-blackburn -> blackburn).
-function sameTeam(pageName: string, teamName: string, teamStatsSlug: string): boolean {
+// True when a name from a result row refers to the team whose page this is:
+// the name we asked for, or the page's own name from its address.
+function sameTeam(pageName: string, teamName: string, slugName: string): boolean {
   const p = normTeam(pageName);
   const t = normTeam(teamName);
-  const s = normTeam(teamStatsSlug.replace(/^u\d+-/, ''));
+  const s = normTeam(slugName);
   if (!p) return false;
   return p === t || p === s;
 }
 
 /**
  * Fetches a team's page and returns their recent match results as
- * FormRecord[] — same shape fcStatsScraper.ts already produces.
+ * FormRecord[] (most recent first, page order) - same shape fcStatsScraper.ts produces.
  */
 export async function fetchTeamResults(
   leagueCode: string,
-  teamStatsSlug: string, // e.g. 'u3812-a.-bucaramanga'
-  teamName: string,      // the team this page belongs to, for venue detection
+  teamPath: string, // e.g. 'england/league-two/england4/teams/fleetwood-town/608'
+  teamName: string, // the team this page belongs to, for venue detection
 ): Promise<FormRecord[]> {
-  const url = `https://www.soccerstats.com/teamstats.asp?league=${leagueCode}&stats=${teamStatsSlug}`;
+  const url = `https://www.soccerstats.com/en-gb/leagues/${teamPath}`;
   const html = await fetchHtml(url);
+  const slugName = slugNamePart(teamPath);
 
-  // Safety guard: soccerstats.com occasionally serves the wrong team's
-  // page for a given slug. Verify the page's own <title> actually names
-  // the team we asked for before parsing anything.
+  // Safety guard: verify the page's own <title> names the team we asked for.
   const titleTagMatch = /<title>([^<]*)<\/title>/.exec(html);
   const pageTitle = titleTagMatch ? titleTagMatch[1] : '';
-  if (pageTitle && !pageIsForTeam(pageTitle, teamName, teamStatsSlug)) {
-    logger.warn('[TeamResults] Page identity mismatch — soccerstats served the wrong team page', {
+  if (pageTitle && !pageIsForTeam(pageTitle, teamName, slugName)) {
+    logger.warn('[TeamResults] Page identity mismatch - soccerstats served the wrong team page', {
       leagueCode,
-      teamStatsSlug,
+      teamPath,
       expectedTeam: teamName,
       pageTitle,
     });
     return [];
   }
 
+  const $ = cheerio.load(html);
   const results: FormRecord[] = [];
+  const seen = new Set<string>();
 
-  // Confined to single <tr height='38'>...</tr> blocks to prevent a
-  // lazy [\s\S]*? on the whole page from bleeding across rows.
-  const rowBlockRegex = /<tr[^>]*height='38'>([\s\S]*?)<\/tr>/g;
+  $('tr.tbl-match-row').each((_i, tr) => {
+    const $tr = $(tr);
+    const kickoff = $tr.find('td.td-date-compact [data-kickoff]').first().attr('data-kickoff') || '';
+    if (!/^\d{4}-\d{2}-\d{2}/.test(kickoff)) return;
+    const date = kickoff.slice(0, 10);
 
-  const dateRegex = /color:#444444;'>\s*(\d{1,2}) (\w{3})/;
-  const scoreRegex = /color:blue;font-size:14px;font-family:monospace;'><b>(\d+):(\d+)<\/b>/;
-  const titleRegex = /title='([^']+) vs ([^']+)'/;
+    // Skip fixtures that haven't been played yet (their badge can show a kickoff time).
+    const kt = new Date(kickoff.replace(' ', 'T') + 'Z').getTime();
+    if (!isNaN(kt) && kt > Date.now()) return;
 
-  let rowMatch: RegExpExecArray | null;
-  while ((rowMatch = rowBlockRegex.exec(html)) !== null) {
-    const row = rowMatch[1];
+    const homeTeam = $tr.find('td.td-team-right span.desktop-only').first().text().trim();
+    const awayTeam = $tr.find('td.td-team-left span.desktop-only').first().text().trim();
+    const scoreText = $tr.find('td.td-score-center .score-badge').first().text().trim();
+    const sm = /^(\d+):(\d+)$/.exec(scoreText);
+    if (!homeTeam || !awayTeam || !sm) return;
 
-    const dateM = dateRegex.exec(row);
-    const scoreM = scoreRegex.exec(row);
-    const titleM = titleRegex.exec(row);
-    if (!dateM || !scoreM || !titleM) continue; // e.g. an upcoming fixture row (no score yet)
+    const homeScore = parseInt(sm[1], 10);
+    const awayScore = parseInt(sm[2], 10);
 
-    const [, dayStr, monthAbbr] = dateM;
-    const [, homeScoreStr, awayScoreStr] = scoreM;
-    const [, homeTeam, awayTeam] = titleM;
+    const isHome = sameTeam(homeTeam, teamName, slugName);
+    const isAway = sameTeam(awayTeam, teamName, slugName);
+    if (!isHome && !isAway) return; // some other team's row
 
-    const day = parseInt(dayStr, 10);
-    const homeScore = parseInt(homeScoreStr, 10);
-    const awayScore = parseInt(awayScoreStr, 10);
-
-    const isHome = sameTeam(homeTeam, teamName, teamStatsSlug);
-    const isAway = sameTeam(awayTeam, teamName, teamStatsSlug);
-    if (!isHome && !isAway) continue; // shouldn't happen, but skip safely
+    const key = `${date}|${homeTeam}|${awayTeam}|${homeScore}:${awayScore}`;
+    if (seen.has(key)) return;
+    seen.add(key);
 
     const goalsFor = isHome ? homeScore : awayScore;
     const goalsAgainst = isHome ? awayScore : homeScore;
-    const opponent = isHome ? awayTeam.trim() : homeTeam.trim();
+    const opponent = isHome ? awayTeam : homeTeam;
 
     let result: 'W' | 'L' | 'D';
     if (goalsFor > goalsAgainst) result = 'W';
@@ -175,17 +134,17 @@ export async function fetchTeamResults(
     else result = 'D';
 
     results.push({
-      date: inferDate(day, monthAbbr),
+      date,
       opponent,
       result,
       goalsFor,
       goalsAgainst,
       venue: isHome ? 'home' : 'away',
     });
-  }
+  });
 
   if (results.length === 0) {
-    logger.warn('[TeamResults] Parsed 0 results — possible markup change', { leagueCode, teamStatsSlug });
+    logger.warn('[TeamResults] Parsed 0 results - possible markup change', { leagueCode, teamPath });
   } else {
     logger.info(`[TeamResults] Parsed ${results.length} results for ${teamName}`, { leagueCode });
   }
@@ -194,7 +153,7 @@ export async function fetchTeamResults(
 }
 
 /**
- * Convenience wrapper: looks up the team's slug, then fetches their
+ * Convenience wrapper: looks up the team's page path, then fetches their
  * match results. Returns [] if the team can't be found in this league.
  */
 export async function fetchTeamResultsByName(

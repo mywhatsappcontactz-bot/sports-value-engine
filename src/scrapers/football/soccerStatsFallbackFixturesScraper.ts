@@ -38,6 +38,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '../../core/utils/logger';
 import { fetchViaFlare } from '../shared/flareFetch';
+import * as cheerio from 'cheerio';
 
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 
@@ -327,8 +328,46 @@ function parseRowFixtures(html: string, leagueCode: string): FallbackFixture[] {
   return fixtures;
 }
 
+// ─── PARSER: CURRENT TEMPLATE (2026-11 redesign) ─────────────────────────────
+// Each upcoming fixture is 2 rows: td.js-local-time[rowspan=2][data-kickoff]
+// with the home team in cell 1, then the away team in cell 0 of the next row.
+// Match id comes from the /matches/<slug>/<id> link. data-kickoff is treated
+// as UTC (inferred, same as soccerStatsFixturesScraper.parseCurrentFixtures).
+function parseCurrentFixtures(html: string, leagueCode: string): FallbackFixture[] {
+  const $ = cheerio.load(html);
+  const seen = new Set<string>();
+  const fixtures: FallbackFixture[] = [];
+  const staleCutoff = Date.now() - 3 * 60 * 60 * 1000;
+
+  $('td.js-local-time[data-kickoff]').each((_i, td) => {
+    const $td = $(td);
+    if ($td.attr('rowspan') !== '2') return;
+    const $row = $td.closest('tr');
+    if ($row.hasClass('played-row') || $row.hasClass('countdown-row')) return;
+
+    const kickoff = ($td.attr('data-kickoff') || '').trim();
+    const t = new Date(kickoff.replace(' ', 'T') + 'Z');
+    if (isNaN(t.getTime()) || t.getTime() < staleCutoff) return;
+
+    const home = $row.children('td').eq(1).text().replace(/\s+/g, ' ').trim();
+    const away = $row.next('tr').children('td').eq(0).text().replace(/\s+/g, ' ').trim();
+    const href = $row.find('a[href*="/matches/"]').first().attr('href') || '';
+    const idMatch = /\/matches\/[^\/]+\/(\d+)\/?$/.exec(href);
+    if (!home || !away || !idMatch) return;
+
+    const sourceMatchId = leagueCode + '-' + idMatch[1];
+    if (seen.has(sourceMatchId)) return;
+    seen.add(sourceMatchId);
+
+    fixtures.push({ homeTeam: home, awayTeam: away, startTime: t.toISOString(), leagueCode, sourceMatchId });
+  });
+
+  return fixtures;
+}
+
 function parseFixtures(html: string, leagueCode: string): FallbackFixture[] {
-  let fixtures = parseModernFixtures(html, leagueCode);
+  let fixtures = parseCurrentFixtures(html, leagueCode);
+  if (fixtures.length === 0) fixtures = parseModernFixtures(html, leagueCode);
   if (fixtures.length === 0) fixtures = parseRowFixtures(html, leagueCode);
 
   if (fixtures.length === 0) {

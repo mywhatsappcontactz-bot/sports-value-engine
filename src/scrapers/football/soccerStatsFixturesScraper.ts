@@ -28,6 +28,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '../../core/utils/logger';
 import { fetchViaFlare } from '../shared/flareFetch';
+import * as cheerio from 'cheerio';
 
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 
@@ -216,6 +217,56 @@ function parseLegacyFixtures(html: string, leagueCode: string): ScrapedFixture[]
   return fixtures;
 }
 
+// ─── PARSER: CURRENT TEMPLATE (2026-11 redesign) ─────────────────────────────
+// SoccerStats replaced both old templates. Each UPCOMING fixture is now two
+// consecutive <tr> rows (the kickoff cell has rowspan="2"):
+//   row 1: <td class="js-local-time" rowspan="2" data-kickoff="2026-11-20 17:30:00">
+//          <td>HOME TEAM</td> <td>bar</td> <td>number</td>
+//          <td rowspan="2"><a href="germany2/matches/home-vs-away/14301">logo</a></td>
+//   row 2: <td>AWAY TEAM</td> <td>bar</td> <td>number</td>
+// followed by <tr class="countdown-row">. Played matches are a single
+// <tr class="played-row"> with a score badge and are skipped here.
+// data-kickoff looks like UTC (the page converts it to the viewer's local time
+// with JavaScript): it matches the usual local kickoff slots minus 1 hour in
+// winter. This gives a REAL kickoff time, unlike the old placeholder-hour parser.
+function parseCurrentFixtures(html: string, leagueCode: string): ScrapedFixture[] {
+  const $ = cheerio.load(html);
+  const seen = new Set<string>();
+  const fixtures: ScrapedFixture[] = [];
+  const staleCutoff = Date.now() - 3 * 60 * 60 * 1000; // drop postponed/old rows still in two-row format
+
+  $('td.js-local-time[data-kickoff]').each((_i, td) => {
+    const $td = $(td);
+    if ($td.attr('rowspan') !== '2') return; // played rows and countdown rows are not upcoming fixtures
+    const $row = $td.closest('tr');
+    if ($row.hasClass('played-row') || $row.hasClass('countdown-row')) return;
+
+    const kickoff = ($td.attr('data-kickoff') || '').trim();
+    const t = new Date(kickoff.replace(' ', 'T') + 'Z');
+    if (isNaN(t.getTime()) || t.getTime() < staleCutoff) return;
+
+    const home = $row.children('td').eq(1).text().replace(/\s+/g, ' ').trim();
+    const away = $row.next('tr').children('td').eq(0).text().replace(/\s+/g, ' ').trim();
+    const href = $row.find('a[href*="/matches/"]').first().attr('href') || '';
+    const idMatch = /\/matches\/[^\/]+\/(\d+)\/?$/.exec(href);
+    if (!home || !away || !idMatch) return;
+
+    const sourceMatchId = leagueCode + '-' + idMatch[1];
+    if (seen.has(sourceMatchId)) return;
+    seen.add(sourceMatchId);
+
+    fixtures.push({
+      homeTeam: home,
+      awayTeam: away,
+      startTime: t.toISOString(),
+      leagueCode,
+      sourceMatchId,
+    });
+  });
+
+  return fixtures;
+}
+
 // ─── PARSER: DISPATCH ─────────────────────────────────────────────────────────
 // Confirmed real structure (Sweden, 24-31 Jul 2026 fixtures) — each
 // upcoming fixture appears as a schema.org SportsEvent block, repeated
@@ -223,7 +274,8 @@ function parseLegacyFixtures(html: string, leagueCode: string): ScrapedFixture[]
 // param), keeping only the first occurrence of each match.
 
 function parseFixtures(html: string, leagueCode: string): ScrapedFixture[] {
-  let fixtures = parseModernFixtures(html, leagueCode);
+  let fixtures = parseCurrentFixtures(html, leagueCode);
+  if (fixtures.length === 0) fixtures = parseModernFixtures(html, leagueCode);
 
   if (fixtures.length === 0) {
     const legacyFixtures = parseLegacyFixtures(html, leagueCode);

@@ -18,6 +18,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '../../core/utils/logger';
 import { fetchViaFlare } from '../shared/flareFetch';
+import * as cheerio from 'cheerio';
 
 
 
@@ -60,7 +61,7 @@ function safeFileName(key: string): string {
 }
 
 function goalsCachePath(leagueCode: string): string {
-  return path.join(CACHE_DIR, `soccerstats-goals-${safeFileName(leagueCode)}.json`);
+  return path.join(CACHE_DIR, `soccerstats-goals-v2-${safeFileName(leagueCode)}.json`);
 }
 
 interface CacheEntry {
@@ -145,7 +146,59 @@ export function parseSectionRows(block: string): Map<string, number> {
   return result;
 }
 
+// ─── CURRENT TEMPLATE (2026-11 redesign) ─────────────────────────────────────
+// The old "Offence/Defence (home/away)" sidebars are gone. latest.asp now has
+// "Home table" and "Away table" sections; each row is
+//   rank | team (td.ha-team-cell) | GP | W | D | L | GF | GA | GD | Pts | PPG
+// Values are converted to PER-MATCH averages (GF/GP) so that the aggregator's
+// attack-strength x defence-weakness x league-average maths yields an expected
+// goals-per-match figure. Teams with 0 games at home or away are skipped.
+function parseGoalsPageCurrent(html: string, leagueCode: string): TeamGoalsSplit[] {
+  const $: any = cheerio.load(html);
+
+  const readTable = (title: string): Map<string, { gp: number; gf: number; ga: number }> => {
+    const out = new Map<string, { gp: number; gf: number; ga: number }>();
+    const hd = $('h1,h2,h3,h4,h5')
+      .filter((_i: number, e: any) => $(e).text().replace(/\s+/g, ' ').trim().toLowerCase() === title.toLowerCase())
+      .first();
+    if (!hd.length) return out;
+    let tbl = hd.next('table');
+    if (!tbl.length) tbl = hd.nextAll().find('table').first();
+    if (!tbl.length) tbl = hd.parent().find('table').first();
+    tbl.find('tr').each((_i: number, tr: any) => {
+      const name = $(tr).find('td.ha-team-cell').first().text().replace(/\s+/g, ' ').trim();
+      const cells = $(tr).children('td').map((_j: number, c: any) => $(c).text().replace(/\s+/g, ' ').trim()).get() as string[];
+      if (!name || cells.length < 8) return;
+      const gp = parseInt(cells[2], 10);
+      const gf = parseInt(cells[6], 10);
+      const ga = parseInt(cells[7], 10);
+      if (isNaN(gp) || isNaN(gf) || isNaN(ga)) return;
+      out.set(name, { gp, gf, ga });
+    });
+    return out;
+  };
+
+  const home = readTable('Home table');
+  const away = readTable('Away table');
+  const teams: TeamGoalsSplit[] = [];
+  for (const [name, h] of home) {
+    const a = away.get(name);
+    if (!a || h.gp <= 0 || a.gp <= 0) continue;
+    teams.push({
+      teamName: name,
+      homeGoalsFor: h.gf / h.gp,
+      homeGoalsAgainst: h.ga / h.gp,
+      awayGoalsFor: a.gf / a.gp,
+      awayGoalsAgainst: a.ga / a.gp,
+    });
+  }
+  logger.info('[SoccerStatsGoals] Parsed ' + teams.length + ' teams (current template) for ' + leagueCode);
+  return teams;
+}
+
 function parseGoalsPage(html: string, leagueCode: string): TeamGoalsSplit[] {
+  const current = parseGoalsPageCurrent(html, leagueCode);
+  if (current.length > 0) return current;
   const sectionData: Record<SectionKey, Map<string, number>> = {
     offenceHome: new Map(),
     defenceHome: new Map(),
@@ -206,7 +259,7 @@ export async function scrapeSoccerStatsGoals(leagueCode: string): Promise<TeamGo
   try {
     const html = await fetchHtml(`${BASE}/latest.asp?league=${leagueCode}`);
     const teams = parseGoalsPage(html, leagueCode);
-    writeGoalsCache(leagueCode, teams);
+    if (teams.length > 0) writeGoalsCache(leagueCode, teams);
     return teams;
   } catch (err: any) {
     logger.error('[SoccerStatsGoals] Fetch failed', { leagueCode, error: err.message });
