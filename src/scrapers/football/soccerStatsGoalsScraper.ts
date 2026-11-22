@@ -39,6 +39,8 @@ export interface TeamGoalsSplit {
   homeGoalsAgainst: number;
   awayGoalsFor: number;
   awayGoalsAgainst: number;
+  homeGp?: number;
+  awayGp?: number;
 }
 
 export const SECTION_HEADERS = {
@@ -190,6 +192,8 @@ function parseGoalsPageCurrent(html: string, leagueCode: string): TeamGoalsSplit
       homeGoalsAgainst: h.ga / h.gp,
       awayGoalsFor: a.gf / a.gp,
       awayGoalsAgainst: a.ga / a.gp,
+      homeGp: h.gp,
+      awayGp: a.gp,
     });
   }
   logger.info('[SoccerStatsGoals] Parsed ' + teams.length + ' teams (current template) for ' + leagueCode);

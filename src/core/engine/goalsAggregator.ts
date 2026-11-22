@@ -58,23 +58,35 @@ interface ExpectedGoals {
   awayGoalsAvg: number;
 }
 
+// Shrink small-sample strengths toward 1.0; clamp final lambdas (see conversation).
+const GOALS_SHRINK_K = 6;
+const GOALS_LAMBDA_MIN = 0.4;
+const GOALS_LAMBDA_MAX = 3.0;
+function shrinkStrength(ratio: number, gp?: number): number {
+  if (!gp || gp <= 0) return ratio;
+  return (gp * ratio + GOALS_SHRINK_K) / (gp + GOALS_SHRINK_K);
+}
+function clampLambda(x: number): number {
+  return Math.min(GOALS_LAMBDA_MAX, Math.max(GOALS_LAMBDA_MIN, x));
+}
+
 function computeExpectedGoals(
   homeStats: TeamGoalsSplit,
   awayStats: TeamGoalsSplit,
   leagueAvg: LeagueGoalsAverages
 ): ExpectedGoals {
-  const homeAttackStrength = leagueAvg.avgHomeGoalsFor > 0
-    ? homeStats.homeGoalsFor / leagueAvg.avgHomeGoalsFor : 1;
-  const awayDefenseWeakness = leagueAvg.avgAwayGoalsAgainst > 0
-    ? awayStats.awayGoalsAgainst / leagueAvg.avgAwayGoalsAgainst : 1;
+  const homeAttackStrength = shrinkStrength(leagueAvg.avgHomeGoalsFor > 0
+    ? homeStats.homeGoalsFor / leagueAvg.avgHomeGoalsFor : 1, homeStats.homeGp);
+  const awayDefenseWeakness = shrinkStrength(leagueAvg.avgAwayGoalsAgainst > 0
+    ? awayStats.awayGoalsAgainst / leagueAvg.avgAwayGoalsAgainst : 1, awayStats.awayGp);
 
-  const awayAttackStrength = leagueAvg.avgAwayGoalsFor > 0
-    ? awayStats.awayGoalsFor / leagueAvg.avgAwayGoalsFor : 1;
-  const homeDefenseWeakness = leagueAvg.avgHomeGoalsAgainst > 0
-    ? homeStats.homeGoalsAgainst / leagueAvg.avgHomeGoalsAgainst : 1;
+  const awayAttackStrength = shrinkStrength(leagueAvg.avgAwayGoalsFor > 0
+    ? awayStats.awayGoalsFor / leagueAvg.avgAwayGoalsFor : 1, awayStats.awayGp);
+  const homeDefenseWeakness = shrinkStrength(leagueAvg.avgHomeGoalsAgainst > 0
+    ? homeStats.homeGoalsAgainst / leagueAvg.avgHomeGoalsAgainst : 1, homeStats.homeGp);
 
-  const homeGoalsAvg = leagueAvg.avgHomeGoalsFor * homeAttackStrength * awayDefenseWeakness;
-  const awayGoalsAvg = leagueAvg.avgAwayGoalsFor * awayAttackStrength * homeDefenseWeakness;
+  const homeGoalsAvg = clampLambda(leagueAvg.avgHomeGoalsFor * homeAttackStrength * awayDefenseWeakness);
+  const awayGoalsAvg = clampLambda(leagueAvg.avgAwayGoalsFor * awayAttackStrength * homeDefenseWeakness);
 
   return { homeGoalsAvg, awayGoalsAvg };
 }
