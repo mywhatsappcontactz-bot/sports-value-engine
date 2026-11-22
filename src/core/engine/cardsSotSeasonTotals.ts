@@ -75,7 +75,7 @@ const TEAM_ALIASES: Record<string, string> = {
   dundeeutd: 'dundeeunited', dundeefc: 'dundee', hearts: 'heartofmidlothian',
   corum: 'yenicorumspor', amedsk: 'amedspor', basaksehir: 'istanbulbasaksehir',
   guimaraes: 'vitoriaguimaraes', vitoriasc: 'vitoriaguimaraes', vguimaraes: 'vitoriaguimaraes',
-  newcastleutd: 'newcastleunited', leedsutd: 'leedsunited', manchesterutd: 'manchesterunited', nottmforest: 'nottinghamforest', tottenham: 'tottenhamhotspur', brighton: 'brightonandhovealbion',
+  newcastleutd: 'newcastleunited', leedsutd: 'leedsunited', manchesterutd: 'manchesterunited', manutd: 'manchesterunited', mancity: 'manchestercity', nottmforest: 'nottinghamforest', tottenham: 'tottenhamhotspur', brighton: 'brightonandhovealbion',
   fcbarcelona: 'barcelona', athleticbilbao: 'athleticclub', deportivo: 'deportivoacoruna',
   racing: 'racingsantander', sevillafc: 'sevilla',
   fcaugsburg: 'augsburg', fsvmainz: 'mainz05', paderborn: 'paderborn07', efrankfurt: 'eintrachtfrankfurt', fckoln: 'koln', frankfurt: 'eintrachtfrankfurt', gladbach: 'monchengladbach',
