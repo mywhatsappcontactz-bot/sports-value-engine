@@ -54,6 +54,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '../../core/utils/logger';
 import { fetchViaFlare } from '../shared/flareFetch';
+import { fetchTeamResultsByName } from './teamResultsScraper';
 
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 
@@ -331,7 +332,32 @@ async function fetchMatchlistRows(leagueCode: string, teamId: string): Promise<R
  * should treat that the same as "insufficient form data", same as an
  * empty FCStats result used to be treated.
  */
+// 2026-11: teamstats.asp/matchlist.asp links no longer exist. Routed through
+// the current team-page scraper. pmatchPath is null (no pmatch.asp pages on the
+// new site), so computeRecencyWeightedCorners returns null and the corners
+// aggregator falls back to season-only averages.
 export async function fetchRecentForm(
+  leagueCode: string,
+  teamName: string,
+  limit: number = 5,
+): Promise<RecentResult[]> {
+  const records = await fetchTeamResultsByName(leagueCode, teamName);
+  return records
+    .filter(r => r.goalsFor !== undefined && r.goalsAgainst !== undefined)
+    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)) // newest first
+    .slice(0, limit)
+    .map(r => ({
+      opponent: r.opponent,
+      goalsFor: r.goalsFor as number,
+      goalsAgainst: r.goalsAgainst as number,
+      result: r.result,
+      venue: r.venue,
+      date: r.date.slice(0, 10),
+      pmatchPath: null,
+    }));
+}
+
+export async function fetchRecentFormLegacy(
   leagueCode: string,
   teamName: string,
   limit: number = 5,
