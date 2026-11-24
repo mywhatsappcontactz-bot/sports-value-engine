@@ -401,6 +401,24 @@ function hockeyGradingEnqueue(match: any, prob: MarketProbability): void {
     .run(match.id, match.homeTeam, match.awayTeam, match.league, match.startTime, prob.market, prob.selection, prob.trueProbability);
 }
 
+// Records basketball tips so a grading job can check them against real scores.
+function basketballGradingEnqueue(match: any, prob: MarketProbability, freePath: boolean): void {
+  if (prob.market === 'team_points_expected') return;
+  const market = prob.market === 'totals' && freePath ? 'totals_free' : prob.market;
+  db.exec(`CREATE TABLE IF NOT EXISTS basketball_grading_queue (
+    id TEXT PRIMARY KEY, matchId TEXT NOT NULL, homeTeam TEXT NOT NULL, awayTeam TEXT NOT NULL,
+    league TEXT NOT NULL, startTime TEXT NOT NULL, market TEXT NOT NULL, targetSelection TEXT NOT NULL,
+    predictedProbability REAL NOT NULL, status TEXT DEFAULT 'pending',
+    homeScore INTEGER, awayScore INTEGER, hit INTEGER, brierScore REAL,
+    createdAt TEXT DEFAULT CURRENT_TIMESTAMP, gradedAt TEXT)`);
+  const exists = db.prepare(`SELECT 1 FROM basketball_grading_queue WHERE matchId = ? AND market = ? AND targetSelection = ?`)
+    .get(match.id, market, prob.selection);
+  if (exists) return;
+  db.prepare(`INSERT INTO basketball_grading_queue (id, matchId, homeTeam, awayTeam, league, startTime, market, targetSelection, predictedProbability)
+    VALUES (lower(hex(randomblob(16))), ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(match.id, match.homeTeam, match.awayTeam, match.league, match.startTime, market, prob.selection, prob.trueProbability);
+}
+
 function scanMatch(match: any, hoursToKickoff: number, tips: Tip[]): void {
   // Sport temporarily disabled (see DISABLED_SPORTS above) — bail before
   // any stats/odds queries or model calls.
@@ -612,6 +630,10 @@ function scanMatch(match: any, hoursToKickoff: number, tips: Tip[]): void {
         targetSelection: prob.selection,
         predictedProbability: prob.trueProbability,
       });
+    }
+
+    if (match.sport === 'basketball') {
+      basketballGradingEnqueue(match, prob, isFreePathBasketballTotal);
     }
 
     if (match.sport === 'hockey' && (prob.market === 'hockey_totals' || prob.market === 'team_totals')) {
