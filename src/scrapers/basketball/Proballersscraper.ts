@@ -257,7 +257,7 @@ function parseSchedule(html: string): ProballersGame[] {
   const $ = cheerio.load(html);
   const games: ProballersGame[] = [];
 
-  $('tr[itemtype="https://schema.org/SportsEvent"]').each((_i, el) => {
+  $('tr').filter((_i, el) => $(el).find('a.list-team-entry').length >= 2).each((_i, el) => { // PB-REDESIGN-2026-11
     const $row = $(el);
 
     // FIXED (see conversation): span[itemprop="startDate"] is now a <meta>
@@ -393,7 +393,7 @@ function parseUpcomingSchedule(html: string): ProballersUpcomingGame[] {
   const $ = cheerio.load(html);
   const games: ProballersUpcomingGame[] = [];
 
-  $('tr[itemtype="https://schema.org/SportsEvent"]').each((_i, el) => {
+  $('tr').filter((_i, el) => $(el).find('a.list-team-entry').length >= 2).each((_i, el) => { // PB-REDESIGN-2026-11
     const $row = $(el);
 
     // FIXED (see conversation): span[itemprop="startDate"] is now a <meta>

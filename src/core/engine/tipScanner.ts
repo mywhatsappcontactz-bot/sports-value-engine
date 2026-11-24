@@ -67,7 +67,7 @@ export interface Tip {
 // Remove an entry to re-enable that sport — no other config needs to change.
 // Hockey disabled for the meantime; all hockey thresholds/calibration below
 // are left intact.
-const DISABLED_SPORTS = new Set<string>(['hockey']);
+const DISABLED_SPORTS = new Set<string>([]);
 
 const MIN_TIP_CONFIDENCE: Record<string, number> = {
   football: 0.80,
@@ -281,7 +281,7 @@ const ALLOWED_TIP_MARKETS: Record<string, string[]> = {
   football:   ['totals', 'corners_totals', 'corners_winner', 'team_corners_over', 'cards_totals', 'sot_totals', 'team_cards_over', 'team_sot_over', 'team_goals_over', 'team_goals_under', 'shots_totals', 'team_shots_over'],
   basketball: ['moneyline', 'totals', 'team_points_over', 'team_points_under', 'team_points_expected'],
   tennis:     ['moneyline'],
-  hockey:     ['moneyline', 'puck_line', 'hockey_totals', 'team_totals'],
+  hockey:     ['hockey_totals', 'team_totals'],
   baseball:   ['moneyline', 'totals'],
   // NFL: moneyline only. The selection text prints as plain "Home"/
   // "Away" — the +3.5 handicap is something the person applies
@@ -384,6 +384,22 @@ function buildSignal(
 }
 
 // ─── PER-MATCH SCAN ─────────────────────────────────────────────────────────
+
+// Records hockey tips so a grading job can check them against real scores.
+function hockeyGradingEnqueue(match: any, prob: MarketProbability): void {
+  db.exec(`CREATE TABLE IF NOT EXISTS hockey_grading_queue (
+    id TEXT PRIMARY KEY, matchId TEXT NOT NULL, homeTeam TEXT NOT NULL, awayTeam TEXT NOT NULL,
+    league TEXT NOT NULL, startTime TEXT NOT NULL, market TEXT NOT NULL, targetSelection TEXT NOT NULL,
+    predictedProbability REAL NOT NULL, status TEXT DEFAULT 'pending',
+    homeGoals INTEGER, awayGoals INTEGER, hit INTEGER, brierScore REAL,
+    createdAt TEXT DEFAULT CURRENT_TIMESTAMP, gradedAt TEXT)`);
+  const exists = db.prepare(`SELECT 1 FROM hockey_grading_queue WHERE matchId = ? AND market = ? AND targetSelection = ?`)
+    .get(match.id, prob.market, prob.selection);
+  if (exists) return;
+  db.prepare(`INSERT INTO hockey_grading_queue (id, matchId, homeTeam, awayTeam, league, startTime, market, targetSelection, predictedProbability)
+    VALUES (lower(hex(randomblob(16))), ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(match.id, match.homeTeam, match.awayTeam, match.league, match.startTime, prob.market, prob.selection, prob.trueProbability);
+}
 
 function scanMatch(match: any, hoursToKickoff: number, tips: Tip[]): void {
   // Sport temporarily disabled (see DISABLED_SPORTS above) — bail before
@@ -596,6 +612,10 @@ function scanMatch(match: any, hoursToKickoff: number, tips: Tip[]): void {
         targetSelection: prob.selection,
         predictedProbability: prob.trueProbability,
       });
+    }
+
+    if (match.sport === 'hockey' && (prob.market === 'hockey_totals' || prob.market === 'team_totals')) {
+      hockeyGradingEnqueue(match, prob);
     }
 
     // Goals totals tips (football only) get queued for grading the same way

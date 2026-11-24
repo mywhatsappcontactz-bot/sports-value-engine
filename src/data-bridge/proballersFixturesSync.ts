@@ -195,6 +195,33 @@ export async function syncOneLeague(leagueName: string): Promise<ProballersFixtu
   }
 
   result.fixturesFound = upcoming.length;
+  // H2H-STORED-MERGE-2026-11: past-season pages are now behind a login, so merge
+  // previously stored H2H records (same league) into the pool. Deduped by date+teams.
+  try {
+    const __rows = getDb().prepare(
+      `SELECT s.h2h AS h2h FROM stats s JOIN matches m ON m.id = s.matchId WHERE s.sport = 'basketball' AND m.league = ?`
+    ).all(leagueName) as any[];
+    const __seen = new Set<string>(h2hHistoryGames.map(g => `${g.date}|${g.homeTeam}|${g.awayTeam}`));
+    let __added = 0;
+    for (const __r of __rows) {
+      let __arr: any[] = [];
+      try { __arr = JSON.parse(__r.h2h || '[]'); } catch { continue; }
+      for (const __g of __arr) {
+        if (!__g || !__g.date || !__g.homeTeam || !__g.awayTeam || typeof __g.homeScore !== 'number' || typeof __g.awayScore !== 'number') continue;
+        const __k = `${__g.date}|${__g.homeTeam}|${__g.awayTeam}`;
+        if (__seen.has(__k)) continue;
+        __seen.add(__k);
+        let __h = 0;
+        for (let __i = 0; __i < __k.length; __i++) __h = (__h * 31 + __k.charCodeAt(__i)) | 0;
+        h2hHistoryGames.push({ date: __g.date, homeTeam: __g.homeTeam, awayTeam: __g.awayTeam, homeScore: __g.homeScore, awayScore: __g.awayScore, gameId: -Math.abs(__h) - 1, boxscoreUrl: '' } as any);
+        __added++;
+      }
+    }
+    console.log(`[DEBUG PROBALLERS-SYNC] ${leagueName}: merged ${__added} stored H2H games into pool`);
+  } catch (e: any) {
+    logger.warn('[ProballersFixturesSync] Stored H2H merge failed', { leagueName, error: e.message });
+  }
+
   console.log(`[DEBUG PROBALLERS-SYNC] ${leagueName}: ${upcoming.length} upcoming fixtures, ${currentSeasonGames.length} current-season games, ${h2hHistoryGames.length} multi-season H2H pool`);
 
   for (const fixture of upcoming) {
