@@ -23,10 +23,26 @@ npx ts-node src/core/database/migrate.ts
 ```
 
 ## Environment Variables
-```
-ODDS_API_KEY=
+Copy these into a local `.env` (never commit it). Cookie values are the `cf_clearance` value only, with the matching User-Agent from the same browser.
+THE_ODDS_API_KEY=
 API_SPORTS_KEY=
-```
+NODE_ENV=
+
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_CHAT_ID=
+
+SOCCERSTATS_COOKIE=
+SOCCERSTATS_UA=
+FBREF_COOKIE=
+FBREF_UA=
+ELITEPROSPECTS_COOKIE=
+ELITEPROSPECTS_UA=
+PROBALLERS_COOKIE=
+PROBALLERS_UA=
+FCSTATS_COOKIE=
+FCSTATS_UA=
+DARTSDATABASE_COOKIE=
+DARTSDATABASE_UA=
 
 ## Known issues and setup notes
 
