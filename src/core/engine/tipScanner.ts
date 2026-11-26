@@ -279,7 +279,7 @@ const DEFAULT_MIN_GAMES_PLAYED = 4;
 // added so far, which all correct upward (raw underclaiming).
 const ALLOWED_TIP_MARKETS: Record<string, string[]> = {
   football:   ['totals', 'corners_totals', 'corners_winner', 'team_corners_over', 'cards_totals', 'sot_totals', 'team_cards_over', 'team_sot_over', 'team_goals_over', 'team_goals_under', 'shots_totals', 'team_shots_over'],
-  basketball: ['moneyline', 'totals', 'team_points_over', 'team_points_under', 'team_points_expected'],
+  basketball: ['moneyline', 'totals', 'team_points_expected'], // team_points_over/under removed: fixed thresholds, not real markets
   tennis:     ['moneyline'],
   hockey:     ['hockey_totals', 'team_totals'],
   baseball:   ['moneyline', 'totals'],
