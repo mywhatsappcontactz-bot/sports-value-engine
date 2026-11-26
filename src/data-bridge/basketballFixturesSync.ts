@@ -74,7 +74,8 @@ function findExistingMatch(
 
   for (const m of upcoming) {
     const matchDate = m.startTime.slice(0, 10);
-    if (matchDate !== dateIso) continue;
+    const nextDay = new Date(Date.parse(dateIso + 'T00:00:00Z') + 864e5).toISOString().slice(0, 10);
+    if (matchDate !== dateIso && matchDate !== nextDay) continue;
 
     const mHome = normalizeTeamName(m.homeTeam);
     const mAway = normalizeTeamName(m.awayTeam);
@@ -92,7 +93,7 @@ function findExistingMatch(
 
 async function syncLeagueFixtures(
   league: BasketballLeague,
-  fixtures: { date: string; homeTeam: string; awayTeam: string }[],
+  fixtures: { date: string; homeTeam: string; awayTeam: string; startTimeUtc?: string }[],
 ): Promise<BasketballFixturesSyncResult> {
   console.log(`[DEBUG BBALL-SYNC] ${league}: ${fixtures.length} fixtures found`);
 
@@ -117,6 +118,7 @@ async function syncLeagueFixtures(
 
       if (matchId) {
         result.matchesReused++;
+        if (fixture.startTimeUtc) { getDb().prepare('UPDATE matches SET startTime = ? WHERE id = ?').run(fixture.startTimeUtc, matchId); }
         console.log(`[DEBUG BBALL-SYNC] ${fixture.homeTeam} vs ${fixture.awayTeam} (${fixture.date}) — reused existing match ${matchId}`);
       } else {
         const externalId = `bbref-${fixture.date}-${normalizeTeamName(fixture.homeTeam)}-${normalizeTeamName(fixture.awayTeam)}`;
@@ -126,7 +128,7 @@ async function syncLeagueFixtures(
           league: leagueName,
           homeTeam: fixture.homeTeam,
           awayTeam: fixture.awayTeam,
-          startTime: `${fixture.date}T12:00:00.000Z`,
+          startTime: fixture.startTimeUtc ?? `${fixture.date}T12:00:00.000Z`,
           status: 'upcoming',
           externalId,
           source: 'basketball-fixtures-free',

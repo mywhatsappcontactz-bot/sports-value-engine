@@ -20,6 +20,7 @@ export interface NBAFixture {
   homeTeam: string;
   awayTeam: string;
   played: boolean;      // true if home_pts/visitor_pts are populated
+  startTimeUtc?: string; // real tip-off (from Start (ET) cell), UTC ISO
 }
 
 const MONTHS = ['october', 'november', 'december', 'january', 'february', 'march', 'april', 'may', 'june'] as const;
@@ -55,6 +56,22 @@ async function defaultFetchHtml(url: string): Promise<string> {
 // csk="202510210OKC" on the <th data-stat="date_game"> row — first 8
 // chars are YYYYMMDD, safe to slice directly rather than parsing the
 // display text (which is locale/format-fragile).
+// Converts a Basketball-Reference "Start (ET)" cell (e.g. "7:30p") on an ET calendar date to UTC ISO.
+function etToUtcIso(dateIso: string, t?: string): string | undefined {
+  const m = /^(\d{1,2}):(\d{2})\s*([ap])/i.exec((t || '').trim());
+  if (!m) return undefined;
+  let h = parseInt(m[1], 10) % 12;
+  if (m[3].toLowerCase() === 'p') h += 12;
+  const [y, mo, d] = dateIso.split('-').map(Number);
+  const nthSunday = (year: number, month: number, n: number) => {
+    const first = new Date(Date.UTC(year, month, 1)).getUTCDay();
+    return 1 + ((7 - first) % 7) + (n - 1) * 7;
+  };
+  const cur = Date.UTC(y, mo - 1, d);
+  const isDst = cur >= Date.UTC(y, 2, nthSunday(y, 2, 2)) && cur < Date.UTC(y, 10, nthSunday(y, 10, 1));
+  return new Date(Date.UTC(y, mo - 1, d, h + (isDst ? 4 : 5), parseInt(m[2], 10))).toISOString();
+}
+
 function parseMonthPage(html: string): NBAFixture[] {
   const fixtures: NBAFixture[] = [];
 
@@ -81,6 +98,7 @@ function parseMonthPage(html: string): NBAFixture[] {
       awayTeam: visitorMatch[1],
       homeTeam: homeMatch[1],
       played,
+      startTimeUtc: etToUtcIso(isoDate, (row.match(/data-stat="game_start_time"\s*>([^<]*)</) || [])[1]),
     });
   }
 
